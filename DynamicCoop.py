@@ -41,7 +41,7 @@ trust_memory = 5     # How many time steps to remember trust changes
 trust_threshold = 0.6  # Trust threshold for cooperative behavior
 
 # Fishing ground and time #
-K = 200 # carrying capacity of fishing ground
+K = 500 # carrying capacity of fishing ground
 n = 150 # number of simulation time steps
 
 # Threshold-based behavior parameters
@@ -60,13 +60,13 @@ cooperation_levels = []  # track average cooperation level over time
 strategy_counts = {'fully_noncoop': [], 'noncoop': [], 'cond_coop': [], 'coop': [], 'fully_coop': []}
 
 # Attributes of fish agents #
-move_fish = 0.2        # speed of fish 
-rad_repulsion = 0.025  # radius of repulsion zone
-rad_orientation = 0.06 # radius of orientation zone 
-rad_attraction =  0.1  # radius of attraction zone 
+scale = 2
+rad_repulsion = 0.025 * scale  # radius of repulsion zone
+rad_orientation = 0.06 * scale # radius of orientation zone
+rad_attraction =  0.1 * scale  # radius of attraction zone
 rad_repulsion_sqr = rad_repulsion ** 2     
-rad_orientation_sqr = rad_orientation ** 2 
-rad_attraction_sqr = rad_attraction ** 2   
+rad_orientation_sqr = rad_orientation ** 2
+rad_attraction_sqr = rad_attraction ** 2
 
 # Attributes of fishing agents (pirogues) #
 num_fishers = 20     # number of pirogues
@@ -117,7 +117,7 @@ Yp = -Half_Length
 Yq =  Half_Length 
 
 # Live plotting parameters
-plot_update_freq = 5  # Update plot every X steps
+plot_update_freq = 25  # Update plot every X steps
 
 #######################################################################################################################################################  
 
@@ -245,7 +245,7 @@ def initialize(experiment):
 
 
 def init_fish_agents(experiment):
-    fish_params = fish_experiment(experiment)
+    fish_params = fish_experiment(experiment, K)
     param_keys = sorted([k for k in fish_params if k != 'carrying_capacity'])
     param_values = [fish_params[k] for k in param_keys]
 
@@ -254,15 +254,18 @@ def init_fish_agents(experiment):
     num_fish_per_combo = fish_params['carrying_capacity'] // num_combinations
 
     for combo in combinations:
+        school_id = 0
         params = dict(zip(param_keys, combo))
         subtype_str = "_".join(f"{k}={v}" for k, v in params.items())
         for _ in range(num_fish_per_combo):
             ag = agent(**params)
             ag.type = 'fish'
+            ag.school = school_id
             ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
             ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
             ag.subtype = subtype_str
             agents.append(ag)
+        school_id += 1
     
 ######################################################################################################################################################    
         
@@ -430,19 +433,39 @@ def update_fish():
     if not fish_list:
         return
 
+    # fish_ag = rd.sample(fish_list, 1)[-1]
+    new_fish = 0
     for fish_ag in fish_list:
-    
-        repulsion = [nb for nb in agents if nb.type == 'fish' and nb != fish_ag and ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_repulsion_sqr] # fishes within the repulsion zone
-        alignment = [nb for nb in agents if nb.type == 'fish' and nb != fish_ag and rad_repulsion_sqr < ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_orientation_sqr ] # fishes within the parallel-orientation zone
-        attraction =[nb for nb in agents if nb.type == 'fish' and nb != fish_ag and rad_orientation_sqr < ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_attraction_sqr ] # fishes within the attraction zone
+
+        repulsion = [
+            nb for nb in agents
+            if nb.type == 'fish'
+               and nb != fish_ag
+               and nb.school == fish_ag.school
+               and ((fish_ag.x - nb.x) ** 2 + (fish_ag.y - nb.y) ** 2) < rad_repulsion_sqr
+        ]
+        alignment = [
+            nb for nb in agents
+            if nb.type == 'fish'
+               and nb != fish_ag
+               and nb.school == fish_ag.school
+               and rad_repulsion_sqr < ((fish_ag.x - nb.x) ** 2 + (fish_ag.y - nb.y) ** 2) < rad_orientation_sqr
+        ]
+        attraction = [
+            nb for nb in agents
+            if nb.type == 'fish'
+               and nb != fish_ag
+               and nb.school == fish_ag.school
+               and rad_orientation_sqr < ((fish_ag.x - nb.x) ** 2 + (fish_ag.y - nb.y) ** 2) < rad_attraction_sqr
+        ]
 
         if len(repulsion) > 0: # if fishes within repulsion zone, move away from the spot that would be the center of mass (midpoint) of all  fish within repulsion zone
             repulsion_x = mean([j.x for j in repulsion])
             repulsion_y = mean([j.y for j in repulsion])
             repulsion_1 = (math.atan2((repulsion_y - fish_ag.y), (repulsion_x - fish_ag.x)) + math.pi ) % (2 * math.pi) # if greater than  (2 * math.pi) then compute with a minus
             theta = repulsion_1
-            fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step
-            fish_ag.y +=  move_fish*math.sin(theta)
+            fish_ag.x +=  fish_ag.speed*math.cos(theta)     # moves 'move_fish' step
+            fish_ag.y +=  fish_ag.speed*math.sin(theta)
             fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
             fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
 
@@ -459,20 +482,23 @@ def update_fish():
             attraction_y = mean([j.y for j in attraction])
             attraction_1 = math.atan2((attraction_y - fish_ag.y), (attraction_x - fish_ag.x))
             theta = attraction_1
-            fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step
-            fish_ag.y +=  move_fish*math.sin(theta)
+            fish_ag.x +=  fish_ag.speed*math.cos(theta)     # moves 'move_fish' step
+            fish_ag.y +=  fish_ag.speed*math.sin(theta)
             fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
             fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
 
         elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) == 0]): # if no fishes in all the zone, move in a random direction
             theta = 2*math.pi*rd.random()
-            fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step
-            fish_ag.y +=  move_fish*math.sin(theta)
+            fish_ag.x +=  fish_ag.speed*math.cos(theta)     # moves 'move_fish' step
+            fish_ag.y +=  fish_ag.speed*math.sin(theta)
             fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
             fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
 
-        if rd.random() < fish_ag.reproduction_rate * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
+        if total_fish_count[-1] + new_fish < total_fish_count[0] and rd.random() < fish_ag.reproduction_rate * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
             agents.append(cp.copy(fish_ag)) # add-copy of fish agent
+            new_fish += 1
+
+    total_fish_count.append(new_fish)
        
 ######################################################################################################################################################                         
                   
@@ -861,7 +887,6 @@ def update_one_unit_time():
     
     # Update time and data
     time1 += 1
-    total_fish_count.append(sum([1 for j in agents if j.type == 'fish']))
     
     # Update MPA fish count
     if MPA == 'no' and Both == 'no':
@@ -950,7 +975,7 @@ def update_live_plot(axes, lines, step):
 
 ######################################################################################################################################################       
 
-experiment_label = 'default'
+experiment_label = 'reproduction_rate'
 initialize(experiment_label)
 observe()
 
@@ -967,7 +992,8 @@ for j in tqdm(range(1, n), desc="Simulating", unit="step"):
     #     update_live_plot(axes, plot_lines, j)
 
 # Final plot update
-update_live_plot(axes, plot_lines, n-1)
+if len(total_fish_count) == n:
+    update_live_plot(axes, plot_lines, n-1)
 
 plot_summary()
 save_cooperation_data()  # Save cooperation data

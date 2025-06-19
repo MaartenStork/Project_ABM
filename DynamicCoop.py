@@ -55,10 +55,11 @@ def delete_prev_sim():
 def initialize(experiment):
     delete_prev_sim()
 
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
     time1 = 0.
     agents = []
     total_fish_count = [K]
+    species_count = {}
     total_hav_data = {}
     current_hav_data = {}
     fishermen_data1 = [0]
@@ -168,6 +169,7 @@ def init_fish_agents(experiment):
         school_id = 0
         params = dict(zip(param_keys, combo))
         subtype_str = "_".join(f"{k}={v}" for k, v in params.items())
+        species_count[subtype_str] = [num_fish_per_combo]
         for _ in range(num_fish_per_combo):
             ag = agent(**params)
             ag.type = 'fish'
@@ -246,11 +248,11 @@ def observe():
     plt.close(fig)
 
 def plot_summary():
-    global time1, agents, total_fish_count, fish_data_MPA, fishermen_data1, fishermen_data2, fishermen_data3
-    plt.figure(figsize=(15, 20))
+    global time1, agents, total_fish_count, species_count, fish_data_MPA, fishermen_data1, fishermen_data2, fishermen_data3
+    plt.figure(figsize=(15, 25))
     
     # Plot 1: Fish population dynamics
-    plt.subplot(4, 1, 1)
+    plt.subplot(5, 1, 1)
     plt.plot(total_fish_count, 'b-', label='Total fish population')
     plt.plot(fish_data_MPA, 'g-', label='Fish in MPA')
     plt.plot(fishermen_data3, 'r-', label='Fish outside MPA')
@@ -258,9 +260,19 @@ def plot_summary():
     plt.ylabel('Number of fish')
     plt.title('Fish Population Dynamics')
     plt.legend()
+
+    # Plot 2: Fish population dynamics per species
+    plt.subplot(5, 1, 2)
+    for species, counts in species_count.items():
+        plt.plot(counts, label=f'Species: {species}')
+
+    plt.xlabel('Time')
+    plt.ylabel('Number of fish')
+    plt.title('Fish Population Dynamics')
+    plt.legend()
     
-    # Plot 2: Fishing activity
-    plt.subplot(4, 1, 2)
+    # Plot 3: Fishing activity
+    plt.subplot(5, 1, 3)
     plt.plot(fishermen_data1, 'b-', label='Total catch')
     plt.plot(fishermen_data2, 'r-', label='Current catch')
     plt.xlabel('Time')
@@ -268,8 +280,8 @@ def plot_summary():
     plt.title('Fishing Activity')
     plt.legend()
     
-    # Plot 3: Cooperation levels
-    plt.subplot(4, 1, 3)
+    # Plot 4: Cooperation levels
+    plt.subplot(5, 1, 4)
     time_steps = range(len(cooperation_levels))
     
     # Plot strategy counts
@@ -291,8 +303,8 @@ def plot_summary():
     plt.title('Evolution of Cooperation Strategies')
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     
-    # Plot 4: Trust dynamics
-    plt.subplot(4, 1, 4)
+    # Plot 5: Trust dynamics
+    plt.subplot(5, 1, 5)
     plt.plot(trust_history, 'b-', label='Average Trust')
     plt.xlabel('Time')
     plt.ylabel('Trust Level')
@@ -339,14 +351,19 @@ def save_cooperation_data():
 
 def update_fish():
     
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
     fish_list = [j for j in agents if j.type == 'fish']
     if not fish_list:
         return
 
     # fish_ag = rd.sample(fish_list, 1)[-1]
     new_fish = 0
+    new_species_count = {}
     for fish_ag in fish_list:
+        if fish_ag.subtype not in new_species_count:
+            new_species_count[fish_ag.subtype] = 1
+        else:
+            new_species_count[fish_ag.subtype] += 1
 
         repulsion = [
             nb for nb in agents
@@ -408,14 +425,23 @@ def update_fish():
         if total_fish_count[-1] + new_fish < total_fish_count[0] and rd.random() < fish_ag.reproduction_rate * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
             agents.append(cp.copy(fish_ag)) # add-copy of fish agent
             new_fish += 1
+            if fish_ag.subtype in new_species_count:
+                new_species_count[fish_ag.subtype] += 1
+            else:
+                new_species_count[fish_ag.subtype] = 1
 
-    total_fish_count.append(new_fish)
+    total_fish_count.append(len(fish_list) + new_fish)
+    for species in species_count:
+        if species in new_species_count:
+            species_count[species].append(new_species_count[species])
+        else:
+            species_count[species].append(0)
        
 ######################################################################################################################################################                         
                   
 def no_mpa():
     
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1] # randomly sample a fisherman 
     
     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr ] # detecting fishes in neighbourhood
@@ -454,7 +480,7 @@ def no_mpa():
 
 def single_mpa():
     
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]   #randomly select a fisherman
     
     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr 
@@ -515,7 +541,7 @@ def single_mpa():
 
 def spaced_mpa():
     
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]    #randomly select an fisherman agent
     
     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr and  all([not((Xm <= nb.x <= Xn) and (Ym <= nb.y <= Yn)), not((Xp <= nb.x <= Xq) and (Yp <= nb.y <= Yq))])] # detecting fishes in neighbourhood
@@ -752,7 +778,7 @@ def plot_trust_dynamics():
     plt.close()
 
 def update_one_unit_time():
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
     
     time1 += 1
     
@@ -869,13 +895,33 @@ def update_live_plot(axes, lines, step):
     mpa_line.set_data(times, fish_data_MPA)
     outside_line.set_data(times, fishermen_data3)
 
+    if len(species_count) > 1:
+        # Clear previous species lines first to avoid overlap
+        # You can either clear ax1 lines or store lines for species separately
+        # Here, let's remove any previously added species lines by clearing lines except the original three:
+        while len(ax1.lines) > 3:  # keep pop_line, mpa_line, outside_line only
+            ax1.lines.pop()
+
+        # Plot each species population with different color and label
+        for species_name, pop_list in species_count.items():
+            species_data = pop_list[:step + 1]  # slice up to current step
+            ax1.plot(times, species_data, label=species_name, linestyle='--')
+
+        ax1.legend()
+
     # Update catch lines
     total_catch_line.set_data(times, fishermen_data1)
     current_catch_line.set_data(times, fishermen_data2)
 
     # Adjust axes limits
     ax1.set_xlim(0, max(n, step + 1))
-    ax1.set_ylim(0, max(max(total_fish_count), max(fish_data_MPA), max(fishermen_data3)) * 1.1)
+    max_y1 = max(
+        max(total_fish_count),
+        max(fish_data_MPA),
+        max(fishermen_data3),
+        *(max(pop_list[:step + 1]) for pop_list in species_count.values()) if species_count else [0]
+    )
+    ax1.set_ylim(0, max_y1 * 1.1)
 
     ax2.set_xlim(0, max(n, step + 1))
     ax2.set_ylim(0, max(max(fishermen_data1), max(fishermen_data2)) * 1.1)

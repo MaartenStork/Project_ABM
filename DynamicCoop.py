@@ -21,8 +21,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import csv 
 from statistics import mean
-from tqdm import tqdm 
-plt.ion()
+from itertools import product
+from fish import fish_experiment
+from create_gif import create_gif
+import os
+import glob
+from tqdm import tqdm
 
 #---------------------------------------------------------------------------
 
@@ -56,8 +60,6 @@ cooperation_levels = []  # track average cooperation level over time
 strategy_counts = {'fully_noncoop': [], 'noncoop': [], 'cond_coop': [], 'coop': [], 'fully_coop': []}
 
 # Attributes of fish agents #
-base_growth_prob = 0.3    # base growth rate
-init_fish = 200        # initial number of fish agents
 move_fish = 0.2        # speed of fish 
 rad_repulsion = 0.025  # radius of repulsion zone
 rad_orientation = 0.06 # radius of orientation zone 
@@ -120,15 +122,32 @@ plot_update_freq = 5  # Update plot every X steps
 #######################################################################################################################################################  
 
 class agent:  # create an empty class
-    pass     
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
     
 #----------------------------------------------------------------------------------------------------------    
 
-def initialize():
-    global time1, agents, fish, fish_data, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
+def delete_prev_sim():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sim_output_dir = os.path.join(script_dir, "simulation_output")
+    pattern = os.path.join(sim_output_dir, "year_*.png")
+
+    # Iterate and remove matching files
+    for file_path in glob.glob(pattern):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting {file_path}: {e}")
+
+
+def initialize(experiment):
+    delete_prev_sim()
+
+    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
     time1 = 0.
     agents = []
-    fish_data = [init_fish]
+    total_fish_count = [K]
     total_hav_data = {}
     current_hav_data = {}
     fishermen_data1 = [0]
@@ -208,15 +227,8 @@ def initialize():
     
     # Add fishers to agents list
     agents.extend(fisher_agents)
-    
-    # Add fish agents
-    for j in range(init_fish):
-        ag = agent()
-        ag.type = 'fish'
-        ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
-        ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
-        agents.append(ag)
 
+    init_fish_agents(experiment)
 #----------------------------------------------------------------------------------------------------------    
                                 
     # Initialise the number of fishes in an MPA 
@@ -229,16 +241,38 @@ def initialize():
     elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA == 'spaced')]):
         fish_data_MPA = [sum([1 for j in agents if j.type == 'fish' and any([((Xm <= j.x <= Xn) and (Ym <= j.y <= Yn)), ((Xp <= j.x <= Xq) and (Yp <= j.y <= Yq))])])]
     
-    fishermen_data3 = [fish_data[-1] - fish_data_MPA[-1]] # initialise number of fishes outside MPA
+    fishermen_data3 = [total_fish_count[-1] - fish_data_MPA[-1]] # initialise number of fishes outside MPA
+
+
+def init_fish_agents(experiment):
+    fish_params = fish_experiment(experiment)
+    param_keys = sorted([k for k in fish_params if k != 'carrying_capacity'])
+    param_values = [fish_params[k] for k in param_keys]
+
+    combinations = list(product(*param_values))
+    num_combinations = len(combinations)
+    num_fish_per_combo = fish_params['carrying_capacity'] // num_combinations
+
+    for combo in combinations:
+        params = dict(zip(param_keys, combo))
+        subtype_str = "_".join(f"{k}={v}" for k, v in params.items())
+        for _ in range(num_fish_per_combo):
+            ag = agent(**params)
+            ag.type = 'fish'
+            ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
+            ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
+            ag.subtype = subtype_str
+            agents.append(ag)
     
 ######################################################################################################################################################    
         
 def observe():
+    # plt.ioff()
     global time1, agents
-    plt.clf()
-    plt.figure(figsize=(10, 10))  # Set a fixed figure size
-    plt.subplot(111, facecolor='lightskyblue')
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.set_facecolor('lightskyblue')
     fishermen = [ag for ag in agents if ag.type == 'fishers']
+
     if len(fishermen) > 0:
         X_fully_noncoop = [ag.x for ag in fishermen if ag.trait == 'fully_noncoop']
         Y_fully_noncoop = [ag.y for ag in fishermen if ag.trait == 'fully_noncoop']
@@ -253,47 +287,57 @@ def observe():
         colors = np.linspace(0, 1, 5)
         mymap = plt.get_cmap("Greys")
         my_colors = mymap(colors)
-        plt.plot(X_fully_coop, Y_fully_coop, 'o', color = my_colors[4], markersize=7.5, label='fully_coop')
-        plt.plot(X_coop, Y_coop, 'o', color = my_colors[3], markersize=7.5, label='coop')
-        plt.plot(X_cond_coop, Y_cond_coop, 'o', color = my_colors[2], markersize=7.5, label='conditional_coop')
-        plt.plot(X_noncoop, Y_noncoop,  'o', color = my_colors[1], markersize=7.5, label='noncoop')
-        plt.plot(X_fully_noncoop, Y_fully_noncoop, 'o', color = my_colors[0], markersize=7.5, label='fully_noncoop')
+        ax.plot(X_fully_coop, Y_fully_coop, 'o', color=my_colors[4], markersize=7.5, label='fully_coop')
+        ax.plot(X_coop, Y_coop, 'o', color=my_colors[3], markersize=7.5, label='coop')
+        ax.plot(X_cond_coop, Y_cond_coop, 'o', color=my_colors[2], markersize=7.5, label='conditional_coop')
+        ax.plot(X_noncoop, Y_noncoop, 'o', color=my_colors[1], markersize=7.5, label='noncoop')
+        ax.plot(X_fully_noncoop, Y_fully_noncoop, 'o', color=my_colors[0], markersize=7.5, label='fully_noncoop')
+
     fish = [ag for ag in agents if ag.type == 'fish']
     if len(fish) > 0:
-        X_fish = [ag.x for ag in fish]
-        Y_fish = [ag.y for ag in fish]
-        plt.plot(X_fish, Y_fish, '^', color='darkgreen', markersize=3, label='fish')
+        subtypes = list(set([ag.subtype for ag in fish]))
+        subtypes.sort()  # optional: for consistent ordering
+        cmap = plt.colormaps.get_cmap('viridis')
+        colors = [cmap(i / len(subtypes)) for i in range(len(subtypes))]
+        for i, subtype in enumerate(subtypes):
+            subtype_fish = [ag for ag in fish if ag.subtype == subtype]
+            X = [ag.x for ag in subtype_fish]
+            Y = [ag.y for ag in subtype_fish]
+            ax.plot(X, Y, '^', color=colors[i], markersize=3, label=f'fish {subtype}')
     if any([(MPA == 'yes' and Type_MPA == 'single' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA =='single' and time1 <= Time_MPA)]):
-        plt.vlines(Xa, Ya, Yb, lw=2, color='k')
-        plt.vlines(Xb, Ya, Yb, lw=2, color='k')
-        plt.hlines(Ya, Xa, Xb, lw=2, color='k')
-        plt.hlines(Yb, Xa, Xb, lw=2, color='k')
+        ax.vlines(Xa, Ya, Yb, lw=2, color='k')
+        ax.vlines(Xb, Ya, Yb, lw=2, color='k')
+        ax.hlines(Ya, Xa, Xb, lw=2, color='k')
+        ax.hlines(Yb, Xa, Xb, lw=2, color='k')
     elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA =='spaced' and time1 <= Time_MPA)]):
-        plt.vlines(Xm, Ym, Yn, lw=2, color='k')
-        plt.vlines(Xn, Ym, Yn, lw=2, color='k')
-        plt.hlines(Ym, Xm, Xn, lw=2, color='k')
-        plt.hlines(Yn, Xm, Xn, lw=2, color='k')
-        plt.vlines(Xp, Yp, Yq, lw=2, color='k')
-        plt.vlines(Xq, Yp, Yq, lw=2, color='k')
-        plt.hlines(Yp, Xp, Xq, lw=2, color='k')
-        plt.hlines(Yq, Xp, Xq, lw=2, color='k')
-    axis('image')
-    axis([-Half_Length_Area, Half_Length_Area,-Half_Length_Area, Half_Length_Area])
-    plt.grid(False)
-    plt.xticks([], [])
-    plt.yticks([], [])
-    plt.title('year =' + str(int(time1)))
-    plt.legend(numpoints=1, loc='center', bbox_to_anchor=(0.5, -0.072), ncol=3, prop={'size':11}, facecolor='lightskyblue')
-    plt.savefig(f'simulation_output/year_{int(time1):04d}.png', bbox_inches='tight', pad_inches=0, dpi=200)
-    plt.close()
+        ax.vlines(Xm, Ym, Yn, lw=2, color='k')
+        ax.vlines(Xn, Ym, Yn, lw=2, color='k')
+        ax.hlines(Ym, Xm, Xn, lw=2, color='k')
+        ax.hlines(Yn, Xm, Xn, lw=2, color='k')
+        ax.vlines(Xp, Yp, Yq, lw=2, color='k')
+        ax.vlines(Xq, Yp, Yq, lw=2, color='k')
+        ax.hlines(Yp, Xp, Xq, lw=2, color='k')
+        ax.hlines(Yq, Xp, Xq, lw=2, color='k')
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_xlim([-Half_Length_Area, Half_Length_Area])
+    ax.set_ylim([-Half_Length_Area, Half_Length_Area])
+    ax.grid(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title(f'year = {int(time1)}')
+    ax.legend(numpoints=1, loc='center', bbox_to_anchor=(0.5, -0.072), ncol=3, prop={'size': 11},
+              facecolor='lightskyblue')
+
+    fig.savefig(f'simulation_output/year_{int(time1):04d}.png', bbox_inches='tight', pad_inches=0, dpi=200)
+    plt.close(fig)
 
 def plot_summary():
-    global time1, agents, fish_data, fish_data_MPA, fishermen_data1, fishermen_data2, fishermen_data3
+    global time1, agents, total_fish_count, fish_data_MPA, fishermen_data1, fishermen_data2, fishermen_data3
     plt.figure(figsize=(15, 20))
     
     # Plot 1: Fish population dynamics
     plt.subplot(4, 1, 1)
-    plt.plot(fish_data, 'b-', label='Total fish population')
+    plt.plot(total_fish_count, 'b-', label='Total fish population')
     plt.plot(fish_data_MPA, 'g-', label='Fish in MPA')
     plt.plot(fishermen_data3, 'r-', label='Fish outside MPA')
     plt.xlabel('Time')
@@ -343,6 +387,7 @@ def plot_summary():
     
     plt.tight_layout()
     plt.savefig('simulation_output/dynamics.png', bbox_inches='tight', dpi=200)
+    plt.close()
     
     # Save cooperation evolution plot separately
     plt.figure(figsize=(10, 6))
@@ -380,59 +425,60 @@ def save_cooperation_data():
 
 def update_fish():
     
-    global time1, agents, fish, fish_data, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3    
+    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
     fish_list = [j for j in agents if j.type == 'fish']
     if not fish_list:
         return
-    fish_ag = rd.sample(fish_list, 1)[-1]
-    
-    repulsion = [nb for nb in agents if nb.type == 'fish' and nb != fish_ag and ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_repulsion_sqr] # fishes within the repulsion zone
-    alignment = [nb for nb in agents if nb.type == 'fish' and nb != fish_ag and rad_repulsion_sqr < ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_orientation_sqr ] # fishes within the parallel-orientation zone
-    attraction =[nb for nb in agents if nb.type == 'fish' and nb != fish_ag and rad_orientation_sqr < ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_attraction_sqr ] # fishes within the attraction zone
-    
-    if len(repulsion) > 0: # if fishes within repulsion zone, move away from the spot that would be the center of mass (midpoint) of all  fish within repulsion zone
-        repulsion_x = mean([j.x for j in repulsion])
-        repulsion_y = mean([j.y for j in repulsion])
-        repulsion_1 = (math.atan2((repulsion_y - fish_ag.y), (repulsion_x - fish_ag.x)) + math.pi ) % (2 * math.pi) # if greater than  (2 * math.pi) then compute with a minus
-        theta = repulsion_1
-        fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step    
-        fish_ag.y +=  move_fish*math.sin(theta) 
-        fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape, 
-        fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
-    
-    elif all([len(repulsion) == 0, len(alignment) > 0]):   # if fishes within parallel-orientation zone, change direction to match the average direction of all the other fish  within parallel-orientation zone     
-        alignment_1 = mean([math.atan2((j.y - fish_ag.y),(j.x - fish_ag.x)) for j in alignment])
-        theta = alignment_1
-        fish_ag.x +=   math.cos(theta)     # moves 'move_fish' step,  move_fish*math.cos(theta)
-        fish_ag.y +=   math.sin(theta)  
-        fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape, 
-        fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
 
-    elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) > 0]): # if fishes within only the attraction zone, head towards the middle (midpoint) of the fishes in zone of attraction.   
-        attraction_x = mean([j.x for j in attraction ])
-        attraction_y = mean([j.y for j in attraction])
-        attraction_1 = math.atan2((attraction_y - fish_ag.y), (attraction_x - fish_ag.x))
-        theta = attraction_1
-        fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step      
-        fish_ag.y +=  move_fish*math.sin(theta) 
-        fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape, 
-        fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+    for fish_ag in fish_list:
+    
+        repulsion = [nb for nb in agents if nb.type == 'fish' and nb != fish_ag and ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_repulsion_sqr] # fishes within the repulsion zone
+        alignment = [nb for nb in agents if nb.type == 'fish' and nb != fish_ag and rad_repulsion_sqr < ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_orientation_sqr ] # fishes within the parallel-orientation zone
+        attraction =[nb for nb in agents if nb.type == 'fish' and nb != fish_ag and rad_orientation_sqr < ((fish_ag.x - nb.x)**2 + (fish_ag.y - nb.y)**2) < rad_attraction_sqr ] # fishes within the attraction zone
 
-    elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) == 0]): # if no fishes in all the zone, move in a random direction  
-        theta = 2*math.pi*rd.random()  
-        fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step     
-        fish_ag.y +=  move_fish*math.sin(theta) 
-        fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape, 
-        fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
-                                       
-    if rd.random() < base_growth_prob * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
-        agents.append(cp.copy(fish_ag)) # add-copy of fish agent  
+        if len(repulsion) > 0: # if fishes within repulsion zone, move away from the spot that would be the center of mass (midpoint) of all  fish within repulsion zone
+            repulsion_x = mean([j.x for j in repulsion])
+            repulsion_y = mean([j.y for j in repulsion])
+            repulsion_1 = (math.atan2((repulsion_y - fish_ag.y), (repulsion_x - fish_ag.x)) + math.pi ) % (2 * math.pi) # if greater than  (2 * math.pi) then compute with a minus
+            theta = repulsion_1
+            fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step
+            fish_ag.y +=  move_fish*math.sin(theta)
+            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
+            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+
+        elif all([len(repulsion) == 0, len(alignment) > 0]):   # if fishes within parallel-orientation zone, change direction to match the average direction of all the other fish  within parallel-orientation zone
+            alignment_1 = mean([math.atan2((j.y - fish_ag.y),(j.x - fish_ag.x)) for j in alignment])
+            theta = alignment_1
+            fish_ag.x +=   math.cos(theta)     # moves 'move_fish' step,  move_fish*math.cos(theta)
+            fish_ag.y +=   math.sin(theta)
+            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
+            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+
+        elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) > 0]): # if fishes within only the attraction zone, head towards the middle (midpoint) of the fishes in zone of attraction.
+            attraction_x = mean([j.x for j in attraction ])
+            attraction_y = mean([j.y for j in attraction])
+            attraction_1 = math.atan2((attraction_y - fish_ag.y), (attraction_x - fish_ag.x))
+            theta = attraction_1
+            fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step
+            fish_ag.y +=  move_fish*math.sin(theta)
+            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
+            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+
+        elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) == 0]): # if no fishes in all the zone, move in a random direction
+            theta = 2*math.pi*rd.random()
+            fish_ag.x +=  move_fish*math.cos(theta)     # moves 'move_fish' step
+            fish_ag.y +=  move_fish*math.sin(theta)
+            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
+            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+
+        if rd.random() < fish_ag.reproduction_rate * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
+            agents.append(cp.copy(fish_ag)) # add-copy of fish agent
        
 ######################################################################################################################################################                         
                   
 def no_mpa():
     
-    global time1, agents, fish, fish_data, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3 
+    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1] # randomly sample a fisherman 
     
     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr ] # detecting fishes in neighbourhood
@@ -442,7 +488,7 @@ def no_mpa():
         for j in sample_fish_harvest:
             agents.remove(j)  # remove catch  
             fisherman_ag.harvest += 1  # add to catch of a fisherman
-    
+
     fishers_neighbors = [[nb.harvest, nb] for nb in agents if nb.type == 'fishers' and nb != fisherman_ag and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr] # detecting fishermen in neighbourhood 
     fishers_neighbors_harvest = sorted(fishers_neighbors, key=lambda HAV: HAV[0]) # sort fishermen in neighborhood according to catch
     if len(fishers_neighbors_harvest) == 0: # if there exist no fisherman in neighbourhood
@@ -471,7 +517,7 @@ def no_mpa():
 
 def single_mpa():
     
-    global time1, agents, fish, fish_data, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3   
+    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]   #randomly select a fisherman
     
     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr 
@@ -532,7 +578,7 @@ def single_mpa():
 
 def spaced_mpa():
     
-    global time1, agents, fish, fish_data, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3   
+    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]    #randomly select an fisherman agent
     
     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr and  all([not((Xm <= nb.x <= Xn) and (Ym <= nb.y <= Yn)), not((Xp <= nb.x <= Xq) and (Yp <= nb.y <= Yq))])] # detecting fishes in neighbourhood
@@ -769,7 +815,7 @@ def plot_trust_dynamics():
     plt.close()
 
 def update_one_unit_time():
-    global time1, agents, fish, fish_data, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
     
     time1 += 1
     
@@ -815,7 +861,7 @@ def update_one_unit_time():
     
     # Update time and data
     time1 += 1
-    fish_data.append(sum([1 for j in agents if j.type == 'fish']))
+    total_fish_count.append(sum([1 for j in agents if j.type == 'fish']))
     
     # Update MPA fish count
     if MPA == 'no' and Both == 'no':
@@ -827,7 +873,7 @@ def update_one_unit_time():
     
     fishermen_data1.append(sum([j.harvest for j in agents if j.type == 'fishers']))
     fishermen_data2.append(sum([current_hav_data[j.num][-1] for j in agents if j.type == 'fishers']))
-    fishermen_data3.append(fish_data[-1] - fish_data_MPA[-1])
+    fishermen_data3.append(total_fish_count[-1] - fish_data_MPA[-1])
    
     # Imitation and tracking
     if time1 % imitation_period == 0:  # Every X time steps
@@ -839,7 +885,7 @@ def update_one_unit_time():
     header = [key for key in sorted(current_hav_data)]
     header.append('total_catch') ; header.append('total_biomass') ; header.append('biomass_inside_MPA') ; header.append('biomass_outside_MPA')
     main_data = [current_hav_data[key] for key in sorted(current_hav_data)]
-    main_data.append(fishermen_data2) ; main_data.append(fish_data) ; main_data.append(fish_data_MPA) ; main_data.append(fishermen_data3)
+    main_data.append(fishermen_data2) ; main_data.append(total_fish_count) ; main_data.append(fish_data_MPA) ; main_data.append(fishermen_data3)
     with open(csvfile, "w") as output:
         writer = csv.writer(output) 
         writer.writerow(header)
@@ -847,7 +893,6 @@ def update_one_unit_time():
 
 def setup_live_plot():
     """Setup the live plotting figure."""
-    plt.ion()  # Enable interactive plotting
     fig = plt.figure(figsize=(10, 8))
     
     # Fish population subplot
@@ -876,34 +921,37 @@ def setup_live_plot():
 
 def update_live_plot(axes, lines, step):
     """Update the live plot with current data."""
+    plt.ion()
     ax1, ax2 = axes
     pop_line, mpa_line, outside_line, total_catch_line, current_catch_line = lines
-    
+
     # Get time range
     times = list(range(step + 1))
-    
+
     # Update fish population lines
-    pop_line.set_data(times, fish_data)
+    pop_line.set_data(times, total_fish_count)
     mpa_line.set_data(times, fish_data_MPA)
     outside_line.set_data(times, fishermen_data3)
-    
+
     # Update catch lines
     total_catch_line.set_data(times, fishermen_data1)
     current_catch_line.set_data(times, fishermen_data2)
-    
+
     # Adjust axes limits
     ax1.set_xlim(0, max(n, step + 1))
-    ax1.set_ylim(0, max(max(fish_data), max(fish_data_MPA), max(fishermen_data3)) * 1.1)
-    
+    ax1.set_ylim(0, max(max(total_fish_count), max(fish_data_MPA), max(fishermen_data3)) * 1.1)
+
     ax2.set_xlim(0, max(n, step + 1))
     ax2.set_ylim(0, max(max(fishermen_data1), max(fishermen_data2)) * 1.1)
-    
+
     plt.draw()
     plt.pause(0.01)
+    plt.ioff()
 
 ######################################################################################################################################################       
 
-initialize()
+experiment_label = 'default'
+initialize(experiment_label)
 observe()
 
 # Setup live plot
@@ -914,9 +962,9 @@ for j in tqdm(range(1, n), desc="Simulating", unit="step"):
     update_one_unit_time()
     observe()
     
-    # Update live plot periodically
-    if j % plot_update_freq == 0:
-        update_live_plot(axes, plot_lines, j)
+    # # Update live plot periodically
+    # if j % plot_update_freq == 0:
+    #     update_live_plot(axes, plot_lines, j)
 
 # Final plot update
 update_live_plot(axes, plot_lines, n-1)
@@ -927,6 +975,10 @@ save_trust_data()  # Save trust data
 
 plt.ioff()  # Disable interactive mode
 plt.show()  # Keep the final plot window open
+
+print('Creating gif...')
+create_gif()
+delete_prev_sim()
 
 # Remove or comment out the ffmpeg video creation line at the end
 # os.system("ffmpeg -v quiet -r 5 -i year_%04d.png -vcodec mpeg4  -y -s:v 1920x1080 simulation_movie.mp4")

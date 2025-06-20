@@ -26,7 +26,7 @@ SIMULATION_CONFIG = {
     'fully_coop': 25,           # Dominant fully cooperative population
     
     # MPA Settings
-    'mpa_present': 'yes',       # Enable MPAs
+    'mpa_present': 'no',       # Enable MPAs
     'part_time': 'no',          # Full-time MPAs
     'mpa_time': 50,             # Duration if part-time (not used when part_time='no')
     'mpa_type': 'spaced',       # Use spaced MPAs for better coverage

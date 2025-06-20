@@ -573,6 +573,19 @@ def spaced_mpa():
    
 ######################################################################################################################################################                                 
 
+def classify_trait_from_effort(effort):
+    """Classifies a fisher's trait based on their continuous effort value."""
+    if effort >= 0.9:
+        return 'fully_noncoop'
+    elif 0.7 <= effort < 0.9:
+        return 'noncoop'
+    elif 0.5 <= effort < 0.7:
+        return 'cond_coop'
+    elif 0.3 <= effort < 0.5:
+        return 'coop'
+    else:
+        return 'fully_coop'
+
 def imitate_successful_strategies():
     """Allow fishers to imitate more successful strategies from their neighbors."""
     global agents
@@ -594,9 +607,12 @@ def imitate_successful_strategies():
             if most_successful.harvest > fisher.harvest:
                 # Probabilistically imitate their strategy
                 if rd.random() < imitation_prob:
-                    # Copy effort level and trait
-                    fisher.effort = most_successful.effort
-                    fisher.trait = most_successful.trait
+                    # Nudge effort towards the more successful agent
+                    nudge = (most_successful.effort - fisher.effort) * imitation_nudge_factor
+                    fisher.effort += nudge
+                    
+                    # Re-classify the trait based on the new effort
+                    fisher.trait = classify_trait_from_effort(fisher.effort)
 
 def track_cooperation_levels():
     """Track the current levels of cooperation strategies."""

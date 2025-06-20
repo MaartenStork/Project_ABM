@@ -26,6 +26,7 @@ cooperation_increase = 0.2  # how much to increase cooperation when threshold is
 imitation_period = 5  # how often agents compare and potentially imitate (every X time steps)
 imitation_radius = 0.3  # radius within which agents can observe others' success
 imitation_prob = 0.3  # probability of imitating when a more successful strategy is found
+imitation_nudge_factor = 0.25 # how much to nudge effort towards a more successful strategy
 
 # Cooperation level tracking
 cooperation_levels = []  # track average cooperation level over time

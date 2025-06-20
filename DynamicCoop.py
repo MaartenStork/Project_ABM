@@ -55,10 +55,11 @@ def delete_prev_sim():
 def initialize(experiment):
     delete_prev_sim()
 
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
     time1 = 0.
     agents = []
     total_fish_count = [K]
+    species_count = {}
     total_hav_data = {}
     current_hav_data = {}
     fishermen_data1 = [0]
@@ -108,22 +109,22 @@ def initialize(experiment):
         
         # Initialize position based on MPA configuration
         if (MPA == 'no' and Both == 'no'):  # only no MPA
-            ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
-            ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
+            ag.x = rd.uniform(-half_length_area, half_length_area)
+            ag.y = rd.uniform(-half_length_area, half_length_area)
         
         elif any([(MPA == 'yes' and Type_MPA == 'single' and Both == 'no'),
                  (MPA == 'no' and Both == 'yes' and Type_MPA == 'single')]):  # single MPA
             while True:
-                ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
-                ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
+                ag.x = rd.uniform(-half_length_area, half_length_area)
+                ag.y = rd.uniform(-half_length_area, half_length_area)
                 if not((Xa <= ag.x <= Xb) and (Ya <= ag.y <= Yb)):
                     break
         
         elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'),
                  (MPA == 'no' and Both == 'yes' and Type_MPA == 'spaced')]):  # spaced MPA
             while True:
-                ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
-                ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
+                ag.x = rd.uniform(-half_length_area, half_length_area)
+                ag.y = rd.uniform(-half_length_area, half_length_area)
                 if all([not((Xm <= ag.x <= Xn) and (Ym <= ag.y <= Yn)),
                        not((Xp <= ag.x <= Xq) and (Yp <= ag.y <= Yq))]):
                     break
@@ -172,9 +173,10 @@ def init_fish_agents(experiment):
             ag = agent(**params)
             ag.type = 'fish'
             ag.school = school_id
-            ag.x = rd.uniform(-Half_Length_Area, Half_Length_Area)
-            ag.y = rd.uniform(-Half_Length_Area, Half_Length_Area)
+            ag.x = rd.uniform(-half_length_area, half_length_area)
+            ag.y = rd.uniform(-half_length_area, half_length_area)
             ag.subtype = subtype_str
+            species_count[subtype_str] = [num_fish_per_combo]
             agents.append(ag)
         school_id += 1
     
@@ -233,8 +235,8 @@ def observe():
         ax.hlines(Yp, Xp, Xq, lw=2, color='k')
         ax.hlines(Yq, Xp, Xq, lw=2, color='k')
     ax.set_aspect('equal', adjustable='box')
-    ax.set_xlim([-Half_Length_Area, Half_Length_Area])
-    ax.set_ylim([-Half_Length_Area, Half_Length_Area])
+    ax.set_xlim([-half_length_area, half_length_area])
+    ax.set_ylim([-half_length_area, half_length_area])
     ax.grid(False)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -246,11 +248,11 @@ def observe():
     plt.close(fig)
 
 def plot_summary():
-    global time1, agents, total_fish_count, fish_data_MPA, fishermen_data1, fishermen_data2, fishermen_data3
-    plt.figure(figsize=(15, 20))
+    global time1, agents, total_fish_count, species_count, fish_data_MPA, fishermen_data1, fishermen_data2, fishermen_data3
+    plt.figure(figsize=(15, 25))
     
     # Plot 1: Fish population dynamics
-    plt.subplot(4, 1, 1)
+    plt.subplot(5, 1, 1)
     plt.plot(total_fish_count, 'b-', label='Total fish population')
     plt.plot(fish_data_MPA, 'g-', label='Fish in MPA')
     plt.plot(fishermen_data3, 'r-', label='Fish outside MPA')
@@ -258,9 +260,19 @@ def plot_summary():
     plt.ylabel('Number of fish')
     plt.title('Fish Population Dynamics')
     plt.legend()
+
+    # Plot 2: Subspecies population dynamics
+    plt.subplot(5, 1, 2)
+    for species in species_count:
+        plt.plot(species_count[species], label=species)
+
+    plt.xlabel('Time')
+    plt.ylabel('Number of fish')
+    plt.title('Species Population Dynamics')
+    plt.legend()
     
-    # Plot 2: Fishing activity
-    plt.subplot(4, 1, 2)
+    # Plot 3: Fishing activity
+    plt.subplot(5, 1, 3)
     plt.plot(fishermen_data1, 'b-', label='Total catch')
     plt.plot(fishermen_data2, 'r-', label='Current catch')
     plt.xlabel('Time')
@@ -268,8 +280,8 @@ def plot_summary():
     plt.title('Fishing Activity')
     plt.legend()
     
-    # Plot 3: Cooperation levels
-    plt.subplot(4, 1, 3)
+    # Plot 4: Cooperation levels
+    plt.subplot(5, 1, 4)
     time_steps = range(len(cooperation_levels))
     
     # Plot strategy counts
@@ -283,7 +295,7 @@ def plot_summary():
                         'Non-cooperative', 'Fully Non-cooperative'],
                  colors=['darkgreen', 'lightgreen', 'yellow', 'orange', 'red'])
     
-    # Plot average cooperation level
+    # Plot 5: Average cooperation level
     plt.plot(time_steps, cooperation_levels, 'k--', label='Average Cooperation Level', linewidth=2)
     
     plt.xlabel('Time')
@@ -292,7 +304,7 @@ def plot_summary():
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     
     # Plot 4: Trust dynamics
-    plt.subplot(4, 1, 4)
+    plt.subplot(5, 1, 5)
     plt.plot(trust_history, 'b-', label='Average Trust')
     plt.xlabel('Time')
     plt.ylabel('Trust Level')
@@ -337,79 +349,136 @@ def save_cooperation_data():
 
 ###################################################################################################################################################### 
 
+def init_boids_zones(fish_agent, all_agents, square_repulsion_rad, square_orientation_rad, square_attraction_rad):
+    repulsion = [
+        nb for nb in all_agents
+        if nb.type == 'fish'
+           and nb != fish_agent
+           and nb.school == fish_agent.school
+           and ((fish_agent.x - nb.x) ** 2 + (fish_agent.y - nb.y) ** 2) < square_repulsion_rad
+    ]
+    alignment = [
+        nb for nb in all_agents
+        if nb.type == 'fish'
+           and nb != fish_agent
+           and nb.school == fish_agent.school
+           and square_repulsion_rad < ((fish_agent.x - nb.x) ** 2 + (fish_agent.y - nb.y) ** 2) < square_orientation_rad
+    ]
+    attraction = [
+        nb for nb in all_agents
+        if nb.type == 'fish'
+           and nb != fish_agent
+           and nb.school == fish_agent.school
+           and square_orientation_rad < ((fish_agent.x - nb.x) ** 2 + (fish_agent.y - nb.y) ** 2) < square_attraction_rad
+    ]
+    return repulsion, alignment, attraction
+
+
+def repulsion_update(fish_agent, repulsion_agents, border):
+    repulsion_x = mean([j.x for j in repulsion_agents])
+    repulsion_y = mean([j.y for j in repulsion_agents])
+    theta = (math.atan2((repulsion_y - fish_agent.y), (repulsion_x - fish_agent.x)) + math.pi) % (
+                2 * math.pi)  # if greater than  (2 * math.pi) then compute with a minus
+    fish_agent.x += fish_agent.speed * math.cos(theta)  # moves 'move_fish' step
+    fish_agent.y += fish_agent.speed * math.sin(theta)
+    fish_agent.x = (fish_agent.x % -border) if fish_agent.x > border else (
+            fish_agent.x % border) if fish_agent.x < -border else fish_agent.x  # ( When fish-agent approach a border of the landscape,
+    fish_agent.y = (fish_agent.y % -border) if fish_agent.y > border else (
+            fish_agent.y % border) if fish_agent.y < -border else fish_agent.y  # they re-enter the system at the opposite border)
+
+
+def alignment_update(fish_agent, alignment_agents, border):
+    theta = mean([math.atan2((j.y - fish_agent.y),(j.x - fish_agent.x)) for j in alignment_agents])
+    fish_agent.x +=   math.cos(theta)     # moves 'move_fish' step,  move_fish*math.cos(theta)
+    fish_agent.y +=   math.sin(theta)
+    fish_agent.x = (fish_agent.x % -border) if fish_agent.x > border else (
+            fish_agent.x % border) if fish_agent.x < -border else fish_agent.x  # ( When fish-agent approach a border of the landscape,
+    fish_agent.y = (fish_agent.y % -border) if fish_agent.y > border else (
+            fish_agent.y % border) if fish_agent.y < -border else fish_agent.y  # they re-enter the system at the opposite border )
+
+
+def attraction_update(fish_agent, attraction_agents, border):
+    attraction_x = mean([j.x for j in attraction_agents])
+    attraction_y = mean([j.y for j in attraction_agents])
+    theta = math.atan2((attraction_y - fish_agent.y), (attraction_x - fish_agent.x))
+    fish_agent.x +=  fish_agent.speed*math.cos(theta)
+    fish_agent.y +=  fish_agent.speed*math.sin(theta)
+    fish_agent.x = (fish_agent.x % -border) if fish_agent.x > border else (
+            fish_agent.x % border) if fish_agent.x < -border else fish_agent.x  # ( When fish-agent approach a border of the landscape,
+    fish_agent.y = (fish_agent.y % -border) if fish_agent.y > border else (
+            fish_agent.y % border) if fish_agent.y < -border else fish_agent.y  # they re-enter the system at the opposite border )
+
+
+def random_update(fish_agent, border):
+    theta = 2 * math.pi * rd.random()
+    fish_agent.x += fish_agent.speed * math.cos(theta)  # moves 'move_fish' step
+    fish_agent.y += fish_agent.speed * math.sin(theta)
+    fish_agent.x = (fish_agent.x % -border) if fish_agent.x > border else (
+                fish_agent.x % border) if fish_agent.x < -border else fish_agent.x  # ( When fish-agent approach a border of the landscape,
+    fish_agent.y = (fish_agent.y % -border) if fish_agent.y > border else (
+                fish_agent.y % border) if fish_agent.y < -border else fish_agent.y  # they re-enter the system at the opposite border )
+
+
+def reproduce(fish_agent, new_fish, new_species_count):
+    agents.append(cp.copy(fish_agent))
+    new_fish += 1
+    new_species_count[fish_agent.subtype] += 1
+    return new_fish
+
+
+def update_counts(old_fish, new_fish, new_species_count):
+    total_fish_count.append(old_fish + new_fish)
+    for species in species_count:
+        if species in new_species_count:
+            species_count[species].append(new_species_count[species])
+        else:
+            species_count[species].append(0)
+
+
 def update_fish():
     
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
+    global time1, agents, fish, total_fish_count, species_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
     fish_list = [j for j in agents if j.type == 'fish']
+    # shuffle list to make sure all fish have a fair chance at reproduction
+    rd.shuffle(fish_list)
     if not fish_list:
+        total_fish_count.append(0)
+        for species in species_count:
+            species_count[species].append(0)
         return
 
     # fish_ag = rd.sample(fish_list, 1)[-1]
     new_fish = 0
+    new_species_count = {}
     for fish_ag in fish_list:
+        if fish_ag not in new_species_count:
+            new_species_count[fish_ag.subtype] = 1
+        else:
+            new_species_count[fish_ag.subtype] += 1
 
-        repulsion = [
-            nb for nb in agents
-            if nb.type == 'fish'
-               and nb != fish_ag
-               and nb.school == fish_ag.school
-               and ((fish_ag.x - nb.x) ** 2 + (fish_ag.y - nb.y) ** 2) < rad_repulsion_sqr
-        ]
-        alignment = [
-            nb for nb in agents
-            if nb.type == 'fish'
-               and nb != fish_ag
-               and nb.school == fish_ag.school
-               and rad_repulsion_sqr < ((fish_ag.x - nb.x) ** 2 + (fish_ag.y - nb.y) ** 2) < rad_orientation_sqr
-        ]
-        attraction = [
-            nb for nb in agents
-            if nb.type == 'fish'
-               and nb != fish_ag
-               and nb.school == fish_ag.school
-               and rad_orientation_sqr < ((fish_ag.x - nb.x) ** 2 + (fish_ag.y - nb.y) ** 2) < rad_attraction_sqr
-        ]
+        repulsion, alignment, attraction = init_boids_zones(fish_ag, agents, rad_repulsion_sqr, rad_orientation_sqr,
+                                                            rad_attraction_sqr)
 
-        if len(repulsion) > 0: # if fishes within repulsion zone, move away from the spot that would be the center of mass (midpoint) of all  fish within repulsion zone
-            repulsion_x = mean([j.x for j in repulsion])
-            repulsion_y = mean([j.y for j in repulsion])
-            repulsion_1 = (math.atan2((repulsion_y - fish_ag.y), (repulsion_x - fish_ag.x)) + math.pi ) % (2 * math.pi) # if greater than  (2 * math.pi) then compute with a minus
-            theta = repulsion_1
-            fish_ag.x +=  fish_ag.speed*math.cos(theta)     # moves 'move_fish' step
-            fish_ag.y +=  fish_ag.speed*math.sin(theta)
-            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
-            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+        # if fishes within repulsion zone, move away from the spot that would be the center of mass (midpoint)
+        # of all  fish within repulsion zone
+        if len(repulsion) > 0:
+            repulsion_update(fish_ag, repulsion, half_length_area)
 
-        elif all([len(repulsion) == 0, len(alignment) > 0]):   # if fishes within parallel-orientation zone, change direction to match the average direction of all the other fish  within parallel-orientation zone
-            alignment_1 = mean([math.atan2((j.y - fish_ag.y),(j.x - fish_ag.x)) for j in alignment])
-            theta = alignment_1
-            fish_ag.x +=   math.cos(theta)     # moves 'move_fish' step,  move_fish*math.cos(theta)
-            fish_ag.y +=   math.sin(theta)
-            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
-            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+        # if fishes within parallel-orientation zone, change direction to match the average direction of all the other
+        # fish within parallel-orientation zone
+        elif all([len(repulsion) == 0, len(alignment) > 0]):
+            alignment_update(fish_ag, alignment, half_length_area)
 
         elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) > 0]): # if fishes within only the attraction zone, head towards the middle (midpoint) of the fishes in zone of attraction.
-            attraction_x = mean([j.x for j in attraction ])
-            attraction_y = mean([j.y for j in attraction])
-            attraction_1 = math.atan2((attraction_y - fish_ag.y), (attraction_x - fish_ag.x))
-            theta = attraction_1
-            fish_ag.x +=  fish_ag.speed*math.cos(theta)     # moves 'move_fish' step
-            fish_ag.y +=  fish_ag.speed*math.sin(theta)
-            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
-            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+            attraction_update(fish_ag, attraction, half_length_area)
 
         elif all([len(repulsion) == 0, len(alignment) == 0, len(attraction) == 0]): # if no fishes in all the zone, move in a random direction
-            theta = 2*math.pi*rd.random()
-            fish_ag.x +=  fish_ag.speed*math.cos(theta)     # moves 'move_fish' step
-            fish_ag.y +=  fish_ag.speed*math.sin(theta)
-            fish_ag.x = (fish_ag.x % -Half_Length_Area) if fish_ag.x > Half_Length_Area else (fish_ag.x % Half_Length_Area) if fish_ag.x < -Half_Length_Area else fish_ag.x  # ( When fish-agent approach a border of the landscape,
-            fish_ag.y = (fish_ag.y % -Half_Length_Area) if fish_ag.y > Half_Length_Area else (fish_ag.y % Half_Length_Area) if fish_ag.y < -Half_Length_Area else fish_ag.y  # they re-enter the system at the opposite border )
+            random_update(fish_ag, half_length_area)
 
-        if total_fish_count[-1] + new_fish < total_fish_count[0] and rd.random() < fish_ag.reproduction_rate * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
-            agents.append(cp.copy(fish_ag)) # add-copy of fish agent
-            new_fish += 1
+        if len(fish_list) + new_fish < total_fish_count[0] and rd.random() < fish_ag.reproduction_rate * (1-sum([1 for j in agents if j.type == 'fish'])/float(K)):  # logistic growth of fishes
+            new_fish = reproduce(fish_ag, new_fish, new_species_count)
 
-    total_fish_count.append(new_fish)
+    update_counts(len(fish_list), new_fish, new_species_count)
        
 ######################################################################################################################################################                         
                   
@@ -432,146 +501,25 @@ def no_mpa():
         theta_1 = 2*math.pi*rd.random()
         fisherman_ag.x +=  move_fishers*math.cos(theta_1) # move  'move_fishers' step in a random direction
         fisherman_ag.y +=  move_fishers*math.sin(theta_1) 
-        fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-        fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
+        fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+        fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
     elif all([len(fishers_neighbors_harvest) > 0, fishers_neighbors_harvest[-1][0] > fisherman_ag.harvest]) : # if there exist fisherman with greater catch than focal fisherman 
             deltax = fishers_neighbors_harvest[-1][-1].x - fisherman_ag.x   #move in the direction of one with greater catch than focal fisherman 
             deltay = fishers_neighbors_harvest[-1][-1].y - fisherman_ag.y 
             theta_2 = math.atan2(deltay,deltax) 
             fisherman_ag.x +=  move_fishers*math.cos(theta_2) # move 'move_fishers' in the direction of neighbour fishermen with greatest catch
             fisherman_ag.y +=  move_fishers*math.sin(theta_2) 
-            fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-            fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
+            fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+            fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
     else: # if all fisherman have less or equal catch relativelly  to focal fisherman
             theta_2 = 2*math.pi*rd.random()
             fisherman_ag.x +=  move_fishers*math.cos(theta_2) # move  'move_fishers' step in a random direction
             fisherman_ag.y +=  move_fishers*math.sin(theta_2) 
-            fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-            fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
+            fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+            fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
 
    
 ###################################################################################################################################################### 
-
-def single_mpa():
-    
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
-    fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]   #randomly select a fisherman
-    
-    fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr 
-        and not((Xa <= nb.x <= Xb) and (Ya <= nb.y <= Yb))] # detecting fishes in neighbourhood and outside MPA
-    num_fish_harvest = int(round(q * fisherman_ag.effort * len(fish_neighbors))) # number of fish catch based on (q*E*x), where x is fishes in neighborhood  and outside MPA
-    if fish_neighbors and num_fish_harvest > 0:
-        sample_fish_harvest = rd.sample(fish_neighbors, min(num_fish_harvest, len(fish_neighbors)))
-        for j in sample_fish_harvest:
-            agents.remove(j)  # remove fish catch
-            fisherman_ag.harvest += 1  # add to catch of fisherman
-    
-    fishers_neighbors = [[nb.harvest, nb] for nb in agents if nb.type =='fishers' and nb != fisherman_ag  and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr] # detecting fishermen in neighbourhood 
-    fishers_neighbors_harvest = sorted(fishers_neighbors, key=lambda HAV: HAV[0]) # sort fishermen in neighborhood according to catch
-    if len(fishers_neighbors_harvest) == 0 : # if there exist no fisherman in neighbourhood:
-        theta_empt1 = 0 ; theta_empt2 = 0
-        while True: 
-            theta_1 = 2*math.pi*rd.random()
-            fisherman_ag.x +=  move_fishers*math.cos(theta_1) - theta_empt1  # move  'move_fishers' step in a random direction
-            fisherman_ag.y +=  move_fishers*math.sin(theta_1) - theta_empt2 
-            theta_empt1 = move_fishers*math.cos(theta_1) ; theta_empt2 = move_fishers*math.sin(theta_1)
-            if not((Xa <= fisherman_ag.x <= Xb) and (Ya <= fisherman_ag.y <= Yb)):
-                fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-                fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-                break
-    elif all([len(fishers_neighbors_harvest) > 0, fishers_neighbors_harvest[-1][0] > fisherman_ag.harvest])  : # if there exist a fisherman in neighbourhood with greatest catch than focal fisherman
-        deltax = fishers_neighbors_harvest[-1][-1].x - fisherman_ag.x   #move in the direction of one with greatest catch
-        deltay = fishers_neighbors_harvest[-1][-1].y - fisherman_ag.y 
-        theta_2 = math.atan2(deltay,deltax) 
-        if not((Xa <= (fisherman_ag.x + move_fishers*math.cos(theta_2)) <= Xb) and (Ya <= (fisherman_ag.y + move_fishers*math.sin(theta_2)) <= Yb)):  # if updating  movement does not fall in MPA
-            fisherman_ag.x +=  move_fishers*math.cos(theta_2) # move 'move_fishers' in the direction of neighbour fishermen with greatest catch 
-            fisherman_ag.y +=  move_fishers*math.sin(theta_2) 
-            fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-            fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-        else:  # in case moving in this direction lands you on an MPA, move in a random direction
-            theta_empt1 = 0 ; theta_empt2 = 0
-            while True: 
-                theta_2 = 2*math.pi*rd.random()
-                fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
-                fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2 
-                theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
-                if not((Xa <= fisherman_ag.x <= Xb) and (Ya <= fisherman_ag.y <= Yb)):
-                    fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-                    fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-                    break
-    else:  # if all fisherman in neighbourhood have less or equal catch compared to focal fisherman
-        theta_empt1 = 0 ; theta_empt2 = 0
-        while True: 
-            theta_2 = 2*math.pi*rd.random()
-            fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
-            fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2 
-            theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
-            if not((Xa <= fisherman_ag.x <= Xb) and (Ya <= fisherman_ag.y <= Yb)):
-                fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-                fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-                break
-                            
-######################################################################################################################################################                                
-
-def spaced_mpa():
-    
-    global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
-    fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]    #randomly select an fisherman agent
-    
-    fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr and  all([not((Xm <= nb.x <= Xn) and (Ym <= nb.y <= Yn)), not((Xp <= nb.x <= Xq) and (Yp <= nb.y <= Yq))])] # detecting fishes in neighbourhood
-    num_fish_harvest = int(round(q * fisherman_ag.effort * len(fish_neighbors))) # number of fish catch based on (q*E*x), where x is number of fishes in neighborhood 
-    if fish_neighbors and num_fish_harvest > 0:
-        sample_fish_harvest = rd.sample(fish_neighbors, min(num_fish_harvest, len(fish_neighbors)))
-        for j in sample_fish_harvest:
-            agents.remove(j)  # remove fish catch
-            fisherman_ag.harvest += 1  # add to fish catch
-    
-    fishers_neighbors = [[nb.harvest, nb] for nb in agents if nb.type == 'fishers' and nb != fisherman_ag and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr] # detecting fishermen in neighbourhood 
-    fishers_neighbors_harvest = sorted(fishers_neighbors, key=lambda HAV: HAV[0]) # sort fishermen in neighborhood according to catch
-    if len(fishers_neighbors_harvest) == 0 : # if there are no fisherman in neighbourhood 
-        theta_empt1 = 0 ; theta_empt2 = 0
-        while True: 
-            theta_1 = 2*math.pi*rd.random()
-            fisherman_ag.x +=  move_fishers*math.cos(theta_1) - theta_empt1  # move  'move_fishers' step in a random direction
-            fisherman_ag.y +=  move_fishers*math.sin(theta_1) - theta_empt2 
-            theta_empt1 = move_fishers*math.cos(theta_1) ; theta_empt2 = move_fishers*math.sin(theta_1)
-            if all([not((Xm <= fisherman_ag.x <= Xn) and (Ym <= fisherman_ag.y <= Yn)), not((Xp <= fisherman_ag.x <= Xq) and (Yp <= fisherman_ag.y <= Yq))]):
-                    fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-                    fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-                    break
-    elif all([len(fishers_neighbors_harvest) > 0, fishers_neighbors_harvest[-1][0] > fisherman_ag.harvest]) : # if there exist fisherman in neighbourhood with greatest catch than focal fisherman 
-        deltax = fishers_neighbors_harvest[-1][-1].x - fisherman_ag.x   # move in the direction of the fisherman with greatest catch 
-        deltay = fishers_neighbors_harvest[-1][-1].y - fisherman_ag.y 
-        theta_2 = math.atan2(deltay,deltax) 
-        if all([not((Xm <= (fisherman_ag.x + move_fishers*math.cos(theta_2)) <= Xn) and (Ym <= (fisherman_ag.y + move_fishers*math.sin(theta_2)) <= Yn)), not((Xp <= (fisherman_ag.x + move_fishers*math.cos(theta_2) <= Xq)) and (Yp <= (fisherman_ag.y + move_fishers*math.sin(theta_2)) <= Yq))]):
-            fisherman_ag.x +=  move_fishers*math.cos(theta_2) # move 'move_fishers' in the direction of neighbour fishermen with greater harvest 
-            fisherman_ag.y +=  move_fishers*math.sin(theta_2) 
-            fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-            fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-        else:  # in the case this paths lands you on an MPA, move in a random direction
-            theta_empt1 = 0 ; theta_empt2 = 0
-            while True: 
-                theta_2 = 2*math.pi*rd.random()
-                fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
-                fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2 
-                theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
-                if all([not((Xm <= fisherman_ag.x <= Xn) and (Ym <= fisherman_ag.y <= Yn)), not((Xp <= fisherman_ag.x <= Xq) and (Yp <= fisherman_ag.y <= Yq))]):
-                    fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-                    fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-                    break
-    else:  # if there exist fisherman in neighbourhood with less or equal catch compared to focal fisherman 
-        theta_empt1 = 0 ; theta_empt2 = 0
-        while True: 
-            theta_2 = 2*math.pi*rd.random()
-            fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
-            fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2 
-            theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
-            if all([not((Xm <= fisherman_ag.x <= Xn) and (Ym <= fisherman_ag.y <= Yn)), not((Xp <= fisherman_ag.x <= Xq) and (Yp <= fisherman_ag.y <= Yq))]):
-                fisherman_ag.x = -Half_Length_Area if fisherman_ag.x > Half_Length_Area else  Half_Length_Area if fisherman_ag.x < -Half_Length_Area else fisherman_ag.x
-                fisherman_ag.y = -Half_Length_Area if fisherman_ag.y > Half_Length_Area else  Half_Length_Area if fisherman_ag.y < -Half_Length_Area else fisherman_ag.y
-                break
-   
-######################################################################################################################################################                                 
 
 def classify_trait_from_effort(effort):
     """Classifies a fisher's trait based on their continuous effort value."""
@@ -586,23 +534,144 @@ def classify_trait_from_effort(effort):
     else:
         return 'fully_coop'
 
+# def single_mpa():
+#
+#     global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1,  fishermen_data2, fishermen_data3
+#     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]   #randomly select a fisherman
+#
+#     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr
+#         and not((Xa <= nb.x <= Xb) and (Ya <= nb.y <= Yb))] # detecting fishes in neighbourhood and outside MPA
+#     num_fish_harvest = int(round(q * fisherman_ag.effort * len(fish_neighbors))) # number of fish catch based on (q*E*x), where x is fishes in neighborhood  and outside MPA
+#     if fish_neighbors and num_fish_harvest > 0:
+#         sample_fish_harvest = rd.sample(fish_neighbors, min(num_fish_harvest, len(fish_neighbors)))
+#         for j in sample_fish_harvest:
+#             agents.remove(j)  # remove fish catch
+#             fisherman_ag.harvest += 1  # add to catch of fisherman
+#
+#     fishers_neighbors = [[nb.harvest, nb] for nb in agents if nb.type =='fishers' and nb != fisherman_ag  and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr] # detecting fishermen in neighbourhood
+#     fishers_neighbors_harvest = sorted(fishers_neighbors, key=lambda HAV: HAV[0]) # sort fishermen in neighborhood according to catch
+#     if len(fishers_neighbors_harvest) == 0 : # if there exist no fisherman in neighbourhood:
+#         theta_empt1 = 0 ; theta_empt2 = 0
+#         while True:
+#             theta_1 = 2*math.pi*rd.random()
+#             fisherman_ag.x +=  move_fishers*math.cos(theta_1) - theta_empt1  # move  'move_fishers' step in a random direction
+#             fisherman_ag.y +=  move_fishers*math.sin(theta_1) - theta_empt2
+#             theta_empt1 = move_fishers*math.cos(theta_1) ; theta_empt2 = move_fishers*math.sin(theta_1)
+#             if not((Xa <= fisherman_ag.x <= Xb) and (Ya <= fisherman_ag.y <= Yb)):
+#                 fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#                 fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#                 break
+#     elif all([len(fishers_neighbors_harvest) > 0, fishers_neighbors_harvest[-1][0] > fisherman_ag.harvest])  : # if there exist a fisherman in neighbourhood with greatest catch than focal fisherman
+#         deltax = fishers_neighbors_harvest[-1][-1].x - fisherman_ag.x   #move in the direction of one with greatest catch
+#         deltay = fishers_neighbors_harvest[-1][-1].y - fisherman_ag.y
+#         theta_2 = math.atan2(deltay,deltax)
+#         if not((Xa <= (fisherman_ag.x + move_fishers*math.cos(theta_2)) <= Xb) and (Ya <= (fisherman_ag.y + move_fishers*math.sin(theta_2)) <= Yb)):  # if updating  movement does not fall in MPA
+#             fisherman_ag.x +=  move_fishers*math.cos(theta_2) # move 'move_fishers' in the direction of neighbour fishermen with greatest catch
+#             fisherman_ag.y +=  move_fishers*math.sin(theta_2)
+#             fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#             fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#         else:  # in case moving in this direction lands you on an MPA, move in a random direction
+#             theta_empt1 = 0 ; theta_empt2 = 0
+#             while True:
+#                 theta_2 = 2*math.pi*rd.random()
+#                 fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
+#                 fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2
+#                 theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
+#                 if not((Xa <= fisherman_ag.x <= Xb) and (Ya <= fisherman_ag.y <= Yb)):
+#                     fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#                     fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#                     break
+#     else:  # if all fisherman in neighbourhood have less or equal catch compared to focal fisherman
+#         theta_empt1 = 0 ; theta_empt2 = 0
+#         while True:
+#             theta_2 = 2*math.pi*rd.random()
+#             fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
+#             fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2
+#             theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
+#             if not((Xa <= fisherman_ag.x <= Xb) and (Ya <= fisherman_ag.y <= Yb)):
+#                 fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#                 fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#                 break
+#
+# ######################################################################################################################################################
+#
+# def spaced_mpa():
+#
+#     global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen , fishermen_data1,  fishermen_data2, fishermen_data3
+#     fisherman_ag = rd.sample([j for j in agents if j.type == 'fishers'],1)[-1]    #randomly select an fisherman agent
+#
+#     fish_neighbors = [nb for nb in agents if nb.type == 'fish' and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr and  all([not((Xm <= nb.x <= Xn) and (Ym <= nb.y <= Yn)), not((Xp <= nb.x <= Xq) and (Yp <= nb.y <= Yq))])] # detecting fishes in neighbourhood
+#     num_fish_harvest = int(round(q * fisherman_ag.effort * len(fish_neighbors))) # number of fish catch based on (q*E*x), where x is number of fishes in neighborhood
+#     if fish_neighbors and num_fish_harvest > 0:
+#         sample_fish_harvest = rd.sample(fish_neighbors, min(num_fish_harvest, len(fish_neighbors)))
+#         for j in sample_fish_harvest:
+#             agents.remove(j)  # remove fish catch
+#             fisherman_ag.harvest += 1  # add to fish catch
+#
+#     fishers_neighbors = [[nb.harvest, nb] for nb in agents if nb.type == 'fishers' and nb != fisherman_ag and ((fisherman_ag.x - nb.x)**2 + (fisherman_ag.y - nb.y)**2) < r_sqr] # detecting fishermen in neighbourhood
+#     fishers_neighbors_harvest = sorted(fishers_neighbors, key=lambda HAV: HAV[0]) # sort fishermen in neighborhood according to catch
+#     if len(fishers_neighbors_harvest) == 0 : # if there are no fisherman in neighbourhood
+#         theta_empt1 = 0 ; theta_empt2 = 0
+#         while True:
+#             theta_1 = 2*math.pi*rd.random()
+#             fisherman_ag.x +=  move_fishers*math.cos(theta_1) - theta_empt1  # move  'move_fishers' step in a random direction
+#             fisherman_ag.y +=  move_fishers*math.sin(theta_1) - theta_empt2
+#             theta_empt1 = move_fishers*math.cos(theta_1) ; theta_empt2 = move_fishers*math.sin(theta_1)
+#             if all([not((Xm <= fisherman_ag.x <= Xn) and (Ym <= fisherman_ag.y <= Yn)), not((Xp <= fisherman_ag.x <= Xq) and (Yp <= fisherman_ag.y <= Yq))]):
+#                     fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#                     fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#                     break
+#     elif all([len(fishers_neighbors_harvest) > 0, fishers_neighbors_harvest[-1][0] > fisherman_ag.harvest]) : # if there exist fisherman in neighbourhood with greatest catch than focal fisherman
+#         deltax = fishers_neighbors_harvest[-1][-1].x - fisherman_ag.x   # move in the direction of the fisherman with greatest catch
+#         deltay = fishers_neighbors_harvest[-1][-1].y - fisherman_ag.y
+#         theta_2 = math.atan2(deltay,deltax)
+#         if all([not((Xm <= (fisherman_ag.x + move_fishers*math.cos(theta_2)) <= Xn) and (Ym <= (fisherman_ag.y + move_fishers*math.sin(theta_2)) <= Yn)), not((Xp <= (fisherman_ag.x + move_fishers*math.cos(theta_2) <= Xq)) and (Yp <= (fisherman_ag.y + move_fishers*math.sin(theta_2)) <= Yq))]):
+#             fisherman_ag.x +=  move_fishers*math.cos(theta_2) # move 'move_fishers' in the direction of neighbour fishermen with greater harvest
+#             fisherman_ag.y +=  move_fishers*math.sin(theta_2)
+#             fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#             fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#         else:  # in the case this paths lands you on an MPA, move in a random direction
+#             theta_empt1 = 0 ; theta_empt2 = 0
+#             while True:
+#                 theta_2 = 2*math.pi*rd.random()
+#                 fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
+#                 fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2
+#                 theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
+#                 if all([not((Xm <= fisherman_ag.x <= Xn) and (Ym <= fisherman_ag.y <= Yn)), not((Xp <= fisherman_ag.x <= Xq) and (Yp <= fisherman_ag.y <= Yq))]):
+#                     fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#                     fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#                     break
+#     else:  # if there exist fisherman in neighbourhood with less or equal catch compared to focal fisherman
+#         theta_empt1 = 0 ; theta_empt2 = 0
+#         while True:
+#             theta_2 = 2*math.pi*rd.random()
+#             fisherman_ag.x +=  move_fishers*math.cos(theta_2) - theta_empt1  # move  'move_fishers' step in a random direction
+#             fisherman_ag.y +=  move_fishers*math.sin(theta_2) - theta_empt2
+#             theta_empt1 = move_fishers*math.cos(theta_2) ; theta_empt2 = move_fishers*math.sin(theta_2)
+#             if all([not((Xm <= fisherman_ag.x <= Xn) and (Ym <= fisherman_ag.y <= Yn)), not((Xp <= fisherman_ag.x <= Xq) and (Yp <= fisherman_ag.y <= Yq))]):
+#                 fisherman_ag.x = -half_length_area if fisherman_ag.x > half_length_area else  half_length_area if fisherman_ag.x < -half_length_area else fisherman_ag.x
+#                 fisherman_ag.y = -half_length_area if fisherman_ag.y > half_length_area else  half_length_area if fisherman_ag.y < -half_length_area else fisherman_ag.y
+#                 break
+#
+# ######################################################################################################################################################
+#
 def imitate_successful_strategies():
     """Allow fishers to imitate more successful strategies from their neighbors."""
     global agents
-    
+
     # Get all fishers
     fishers = [ag for ag in agents if ag.type == 'fishers']
-    
+
     # For each fisher
     for fisher in fishers:
         # Find neighbors within imitation radius
-        neighbors = [nb for nb in fishers if nb != fisher and 
+        neighbors = [nb for nb in fishers if nb != fisher and
                     ((fisher.x - nb.x)**2 + (fisher.y - nb.y)**2) < imitation_radius**2]
-        
+
         if neighbors:
             # Find the most successful neighbor
             most_successful = max(neighbors, key=lambda x: x.harvest)
-            
+
             # If the most successful neighbor has higher harvest
             if most_successful.harvest > fisher.harvest:
                 # Probabilistically imitate their strategy
@@ -769,7 +838,8 @@ def plot_trust_dynamics():
 
 def update_one_unit_time():
     global time1, agents, fish, total_fish_count, fish_data_MPA, total_hav_data, current_hav_data, fishermen, fishermen_data1, fishermen_data2, fishermen_data3
-    
+
+    # First timestep: update fish, let fishers catch fish
     time1 += 1
     
     # Update fish positions and growth
@@ -807,12 +877,12 @@ def update_one_unit_time():
         # Update fisherman position
         if MPA == 'no' and Both == 'no':
             no_mpa()
-        elif any([(MPA == 'yes' and Type_MPA == 'single' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA == 'single')]):
-            single_mpa()
-        elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA == 'spaced')]):
-            spaced_mpa()
+        # elif any([(MPA == 'yes' and Type_MPA == 'single' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA == 'single')]):
+        #     single_mpa()
+        # elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'), (MPA == 'no' and Both == 'yes' and Type_MPA == 'spaced')]):
+        #     spaced_mpa()
     
-    # Update time and data
+    # Next timestep: update stats, fishers imitate strategies
     time1 += 1
     
     # Update MPA fish count
@@ -871,6 +941,7 @@ def setup_live_plot():
     plt.tight_layout()
     return (ax1, ax2), (pop_line, mpa_line, outside_line, total_catch_line, current_catch_line)
 
+
 def update_live_plot(axes, lines, step):
     """Update the live plot with current data."""
     plt.ion()
@@ -902,7 +973,7 @@ def update_live_plot(axes, lines, step):
 
 ######################################################################################################################################################       
 
-experiment_label = 'reproduction_rate'
+experiment_label = 'both'
 initialize(experiment_label)
 observe()
 

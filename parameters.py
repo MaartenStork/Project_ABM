@@ -56,7 +56,7 @@ coop = 4              # number of cooperative pirogues
 fully_coop = 4        # number of fully cooperative pirogues
 
 # Design of the MPA (presence/absence, size, age, and distance of between two) #
-MPA = 'yes'         # Presence or absence of MPA ('yes' for presence, 'no' for absence)
+MPA = 'no'         # Presence or absence of MPA ('yes' for presence, 'no' for absence)
 Both = 'no'         # Presence of MPA ('no' for full-time presence, 'yes' for part-time presence)
 Time_MPA = 50       # Period of time over which MPA is active (when Both = 'yes') 
 Type_MPA = 'single' # Spacial configuration of MPA ('spaced' for two MPAs, 'single' for one MPA)
@@ -66,7 +66,7 @@ Frac_MPA = 0.25     # Fraction of fishing grounde covered by MPA(s)
 # Coordinates of the fishing ground #
 Area = 2.0000 
 Length_Area = math.sqrt(Area)
-Half_Length_Area = Length_Area / 2
+half_length_area = Length_Area / 2
 
 # Coordinates of the MPA #' 
 Half_Length = (math.sqrt(Frac_MPA* Area)) / 2 # compute half the length  of MPA 

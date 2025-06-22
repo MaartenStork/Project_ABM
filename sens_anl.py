@@ -8,6 +8,7 @@ This script performs three types of sensitivity analysis:
 
 Key improvements:
 - Now includes reproduction_rate as a parameter (was missing before)
+- Uses 500 timesteps per run (vs 150) to capture steady-state behavior
 - Uses statistically significant sample sizes:
   * OFAT: 25 points × 50 reps = 1,250 runs per parameter (~36,250 total runs)
   * Sobol: 2,048 samples × (29 params + 2) = ~63,500 runs
@@ -15,13 +16,14 @@ Key improvements:
 - Properly restores parameters after each analysis
 - Better visualization with sorted results
 
-TOTAL ESTIMATED RUNS: ~105,750 model runs
+TOTAL ESTIMATED RUNS: ~105,750 model runs (500 timesteps each)
 
 Usage:
 - Full analysis: python3 sens_anl.py
 - Quick test: python3 sens_anl.py quick
 
-WARNING: Full analysis will take 6-12+ hours depending on your machine.
+WARNING: Full analysis will take 12-24+ hours depending on your machine.
+Each run is now ~3x longer due to increased timesteps (500 vs 150).
 Consider running overnight or on a cluster. You can also comment out specific
 analyses in the main() function to run them individually.
 
@@ -45,10 +47,13 @@ from SALib.sample import morris as morris_sample
 from SALib.analyze import morris as morris_analyze
 
 
-def run_model():
+def run_model(n_timesteps=500):
     """
-    Re-initialize and run the DynamicCoop model for n steps,
+    Re-initialize and run the DynamicCoop model for n_timesteps,
     return final total fish count.
+    
+    Using 500 timesteps instead of default 150 to ensure we capture
+    steady-state behavior rather than transient dynamics.
     """
     dc.initialize('reproduction_rate')
     
@@ -58,7 +63,8 @@ def run_model():
             if agent.type == 'fish':
                 setattr(agent, 'reproduction_rate', parameters.reproduction_rate)
     
-    for _ in range(parameters.n):
+    # Run for more timesteps to reach steady state
+    for _ in range(n_timesteps):
         dc.update_one_unit_time()
     return dc.total_fish_count[-1]
 
@@ -238,7 +244,7 @@ def main(quick_test=False):
         
     else:
         print("\n=== FULL STATISTICAL ANALYSIS ===")
-        print("WARNING: This will take many hours (6-12+ hours total)!")
+        print("WARNING: This will take many hours (12-24+ hours total)!")
         print("Consider running analyses individually by commenting out others in the code.")
         
         total_runs_estimated = (

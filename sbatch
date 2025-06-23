@@ -38,7 +38,7 @@ module load Python/3.10.4-GCCcore-11.3.0
 
 # Ensure pip is up to date and SALib is installed
 python3 -m pip install --upgrade --user pip
-python3 -m pip install --user SALib
+python3 -m pip install --user SALib imageio
 
 # Run your sensitivity-analysis script
 python3 "$SCRIPT_PATH"

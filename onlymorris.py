@@ -23,6 +23,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import DynamicCoop as dc
 import parameters
+import pandas as pd
+import os
+from datetime import datetime
 
 # For Morris screening
 from SALib.sample import morris as morris_sample
@@ -100,16 +103,51 @@ def morris_analysis(param_names, bounds, original_values, num_trajectories=200, 
     problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
     print(f"Sampling for Morris: trajectories={num_trajectories}, levels={grid_levels}")
     print(f"Total model runs: {num_trajectories * (len(param_names) + 1)}")
+    
+    # Create timestamp for unique filenames
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # Create results directory if it doesn't exist
+    os.makedirs('morris_results', exist_ok=True)
+    
+    # Generate Morris trajectories
     X = morris_sample.sample(problem, N=num_trajectories, num_levels=grid_levels, optimal_trajectories=None)
     Y = np.zeros(X.shape[0])
+    
+    # Run model and collect results
     for i, xi in enumerate(tqdm(X, desc='Morris runs')):
         for name, val in zip(param_names, xi): setattr(parameters, name, val)
         Y[i] = run_model()
     
+    # Save raw trajectories and outputs
+    raw_df = pd.DataFrame(X, columns=param_names)
+    raw_df['output'] = Y
+    raw_filename = f'morris_results/morris_raw_data_{timestamp}.csv'
+    raw_df.to_csv(raw_filename, index=False)
+    print(f"Raw Morris data saved to {raw_filename}")
+    
     # Restore original values
     restore_parameters(param_names, original_values)
     
+    # Analyze results
     Si = morris_analyze.analyze(problem, X, Y, conf_level=0.95, print_to_console=False)
+    
+    # Save analyzed results
+    results_df = pd.DataFrame({
+        'parameter': param_names,
+        'mu': Si['mu'],
+        'mu_star': np.abs(Si['mu']),  # Absolute mean
+        'sigma': Si['sigma'],
+        'mu_star_conf': Si['mu_star_conf']
+    })
+    
+    # Sort by mu_star (absolute mean) for easier interpretation
+    results_df = results_df.sort_values('mu_star', ascending=False)
+    
+    analyzed_filename = f'morris_results/morris_analyzed_{timestamp}.csv'
+    results_df.to_csv(analyzed_filename, index=False)
+    print(f"Analyzed Morris results saved to {analyzed_filename}")
+    
     return Si
 
 
@@ -136,6 +174,9 @@ def main(quick_test=False):
     print(f"Parameters included ({len(param_names)}): {param_names}")
     print(f"reproduction_rate excluded from analysis")
     
+    # Create results directory if it doesn't exist
+    os.makedirs('morris_results', exist_ok=True)
+    
     if quick_test:
         print("\n=== QUICK TEST MODE ===")
         print("Running with reduced sample sizes for testing...")
@@ -143,7 +184,7 @@ def main(quick_test=False):
         # Quick Morris Analysis
         print("\n=== Running Quick Morris Analysis ===")
         Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=10, grid_levels=4)
-        plot_morris(Si_m, param_names, filename='morris_ee_quick.png')
+        plot_morris(Si_m, param_names, filename='morris_results/morris_ee_quick.png')
         
         print("\nQuick test completed. For full statistically significant results, run main(quick_test=False)")
         
@@ -154,7 +195,7 @@ def main(quick_test=False):
         # Morris Analysis
         print(f"\n=== Running Morris Analysis ===")
         Si_m = morris_analysis(param_names, bounds, original_values)
-        plot_morris(Si_m, param_names)
+        plot_morris(Si_m, param_names, filename='morris_results/morris_ee.png')
     
     # Ensure all parameters are restored to original values
     restore_parameters(param_names, original_values)

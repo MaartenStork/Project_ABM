@@ -150,8 +150,12 @@ def plot_ofat(ofat_results, filename='ofat_full.png'):
 def sobol_analysis(param_names, bounds, original_values, sample_size=2048):
     """Sobol sensitivity analysis with statistically significant sample size"""
     problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
-    print(f"Sampling for Sobol: N={sample_size} (Total model runs: {sample_size * (len(param_names) + 2)})")
-    X = sobol_sample.sample(problem, sample_size, calc_second_order=False)
+    # Update total runs calculation to include second-order terms
+    total_runs = sample_size * (2*len(param_names) + 2)  # Formula for second-order
+    print(f"Sampling for Sobol: N={sample_size} (Total model runs: {total_runs})")
+    
+    # Enable second-order calculations
+    X = sobol_sample.sample(problem, sample_size, calc_second_order=True)
     Y = np.zeros(X.shape[0])
     for i, xi in enumerate(tqdm(X, desc='Sobol runs')):
         for name, val in zip(param_names, xi): setattr(parameters, name, val)
@@ -160,28 +164,74 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=2048):
     # Restore original values
     restore_parameters(param_names, original_values)
     
-    Si = sobol_analyze.analyze(problem, Y, calc_second_order=False, print_to_console=False)
+    # Enable second-order in analysis
+    Si = sobol_analyze.analyze(problem, Y, calc_second_order=True, print_to_console=True)
     return Si
 
 
 def plot_sobol(Si, param_names, filename='sobol_indices.png'):
+    # First-order indices (keep existing horizontal bar plot)
     S1 = np.array(Si['S1'])
     S1_conf = np.array(Si['S1_conf'])
     idx = np.argsort(-S1)
     sorted_names = [param_names[i] for i in idx]
     sorted_S1 = S1[idx]
     sorted_conf = S1_conf[idx]
-    fig, ax = plt.subplots(figsize=(12, max(8, len(param_names)*0.35)))
+    
+    # Create figure with 3 subplots arranged vertically
+    fig = plt.figure(figsize=(12, 20))
+    
+    # First-order indices plot (top)
+    ax1 = plt.subplot(3, 1, 1)
     y_pos = np.arange(len(sorted_names))
-    ax.barh(y_pos, sorted_S1, xerr=sorted_conf, align='center', color='skyblue', ecolor='gray', capsize=4)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(sorted_names)
-    ax.invert_yaxis()
-    ax.set_xlabel('First-order Sobol index')
-    ax.set_title('Factor Prioritization via Sobol Indices (N=2048)')
-    ax.grid(axis='x', linestyle='--', alpha=0.5)
-    plt.tight_layout()
-    plt.savefig(filename, dpi=200)
+    ax1.barh(y_pos, sorted_S1, xerr=sorted_conf, align='center', color='skyblue', ecolor='gray', capsize=4)
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels(sorted_names)
+    ax1.invert_yaxis()
+    ax1.set_xlabel('First-order Sobol index')
+    ax1.set_title('First-order Sensitivity Indices (S1)')
+    ax1.grid(axis='x', linestyle='--', alpha=0.5)
+    
+    # Total-order indices plot (middle)
+    ax2 = plt.subplot(3, 1, 2)
+    ST = np.array(Si['ST'])
+    ST_conf = np.array(Si['ST_conf'])
+    idx_t = np.argsort(-ST)
+    sorted_names_t = [param_names[i] for i in idx_t]
+    sorted_ST = ST[idx_t]
+    sorted_ST_conf = ST_conf[idx_t]
+    
+    y_pos = np.arange(len(sorted_names_t))
+    ax2.barh(y_pos, sorted_ST, xerr=sorted_ST_conf, align='center', color='lightgreen', ecolor='gray', capsize=4)
+    ax2.set_yticks(y_pos)
+    ax2.set_yticklabels(sorted_names_t)
+    ax2.invert_yaxis()
+    ax2.set_xlabel('Total-order Sobol index')
+    ax2.set_title('Total-order Sensitivity Indices (ST)')
+    ax2.grid(axis='x', linestyle='--', alpha=0.5)
+    
+    # Second-order interactions heatmap (bottom)
+    ax3 = plt.subplot(3, 1, 3)
+    S2 = Si['S2']
+    im = ax3.imshow(S2, cmap='YlOrRd', aspect='equal')
+    plt.colorbar(im, ax=ax3, label='Second-order Sensitivity Index')
+    
+    # Add parameter names to axes
+    ax3.set_xticks(np.arange(len(param_names)))
+    ax3.set_yticks(np.arange(len(param_names)))
+    ax3.set_xticklabels(param_names, rotation=45, ha='right')
+    ax3.set_yticklabels(param_names)
+    
+    # Add value annotations to the heatmap
+    for i in range(len(param_names)):
+        for j in range(len(param_names)):
+            text = ax3.text(j, i, f'{S2[i, j]:.3f}',
+                          ha='center', va='center', color='black')
+    
+    ax3.set_title('Second-order Interactions (S2)')
+    
+    plt.tight_layout(pad=3.0)
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
     print(f"Sobol prioritization plot saved to {filename}")
     plt.show()
 

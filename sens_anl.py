@@ -47,7 +47,7 @@ from SALib.sample import morris as morris_sample
 from SALib.analyze import morris as morris_analyze
 
 
-def run_model(n_timesteps=300):
+def run_model(n_timesteps=1000):
     """
     Re-initialize and run the DynamicCoop model for n_timesteps,
     return final total fish count.
@@ -90,7 +90,15 @@ def get_param_names_and_bounds():
         'Xa', 'Xb', 'Ya', 'Yb', 'Xm', 'Xn', 'Ym', 'Yn', 'Xp', 'Xq', 'Yp', 'Yq',
         
         # Exclude plotting parameter
-        'plot_update_freq'
+        'plot_update_freq',
+        
+        # # Exclude all parameters except our five key ones
+        # 'reproduction_rate', 'trust_memory', 'imitation_prob', 'threshold_radius',
+        # 'fully_coop', 'trust_radius', 'trust_increase', 'move_fishers', 'K',
+        # 'rad_orientation', 'imitation_radius', 'rad_attraction', 'r',
+        # 'cond_coop', 'imitation_nudge_factor', 'fish_density_threshold',
+        # 'noncoop', 'initial_trust', 'coop', 'num_fishers', 'fully_noncoop',
+        # 'rad_repulsion', 'trust_threshold', 'threshold_memory'
     }
     names = [p for p in names if p not in exclude]
     names.sort()
@@ -103,11 +111,37 @@ def get_param_names_and_bounds():
     return names, bounds, original_values
 
 
+def update_parameters(param_names, param_values):
+    """Update parameters and handle derived parameters"""
+    for name, val in zip(param_names, param_values):
+        setattr(parameters, name, val)
+    
+    # Handle derived parameters that depend on scale
+    if 'scale' in param_names:
+        scale_val = getattr(parameters, 'scale')
+        parameters.rad_repulsion = 0.025 * scale_val
+        parameters.rad_orientation = 0.06 * scale_val
+        parameters.rad_attraction = 0.1 * scale_val
+        parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
+        parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
+        parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+
+
 def restore_parameters(param_names, original_values):
     """Restore parameters to their original values after analysis"""
     for name in param_names:
         if name in original_values:
             setattr(parameters, name, original_values[name])
+    
+    # Restore derived parameters if scale was included
+    if 'scale' in param_names and 'scale' in original_values:
+        scale_val = original_values['scale']
+        parameters.rad_repulsion = 0.025 * scale_val
+        parameters.rad_orientation = 0.06 * scale_val
+        parameters.rad_attraction = 0.1 * scale_val
+        parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
+        parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
+        parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
 
 
 def ofat_analysis(param_names, original_values, n_points=25, n_reps=50):
@@ -119,35 +153,79 @@ def ofat_analysis(param_names, original_values, n_points=25, n_reps=50):
         stds  = np.zeros(n_points)
         for i, xi in enumerate(tqdm(x, desc=f"OFAT {p}")):
             setattr(parameters, p, xi)
+            
+            # Handle derived parameters that depend on scale
+            if p == 'scale':
+                parameters.rad_repulsion = 0.025 * xi
+                parameters.rad_orientation = 0.06 * xi
+                parameters.rad_attraction = 0.1 * xi
+                parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
+                parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
+                parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+            
             Y = [run_model() for _ in range(n_reps)]
             means[i] = np.mean(Y)
             stds[i]  = np.std(Y, ddof=1)
         ofat_results[p] = (x, means, stds)
         setattr(parameters, p, original_values[p])  # Restore original value
+        
+        # Restore derived parameters if we changed scale
+        if p == 'scale':
+            parameters.rad_repulsion = 0.025 * original_values['scale']
+            parameters.rad_orientation = 0.06 * original_values['scale']
+            parameters.rad_attraction = 0.1 * original_values['scale']
+            parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
+            parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
+            parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
     return ofat_results
 
 
 def plot_ofat(ofat_results, filename='ofat_full.png'):
     n = len(ofat_results)
-    cols = 3
+    cols = 5  # Changed from 3 to 5 columns
     rows = int(np.ceil(n/cols))
-    fig, axes = plt.subplots(rows, cols, figsize=(5*cols,4*rows))
+    fig, axes = plt.subplots(rows, cols, figsize=(4*cols, 3*rows))  # Adjusted figure size for better fit
     axes = axes.flatten()
-    for ax, (p,(x,m,s)) in zip(axes, ofat_results.items()):
-        ax.plot(x, m, '-k', lw=2)
-        ax.fill_between(x, m-s, m+s, color='lightgray', alpha=0.5)
-        ax.set_title(p)
-        ax.set_xlabel(p)
-        ax.set_ylabel('Final fish')
-        ax.grid(True)
-    for ax in axes[n:]: ax.set_visible(False)
+    
+    # Define the order of parameters for the first row
+    first_row_params = ['scale', 'imitation_period', 'cooperation_increase', 'q', 'trust_decrease']
+    # Get remaining parameters
+    other_params = [p for p in ofat_results.keys() if p not in first_row_params]
+    
+    # Plot first row parameters
+    for i, param in enumerate(first_row_params):
+        if param in ofat_results:
+            x, m, s = ofat_results[param]
+            axes[i].plot(x, m, '-', color='#1f77b4', lw=2)
+            axes[i].fill_between(x, m-s, m+s, color='#1f77b4', alpha=0.2)
+            axes[i].set_title(param)
+            axes[i].set_xlabel(param)
+            axes[i].set_ylabel('Final fish')
+            axes[i].grid(True, alpha=0.3)
+    
+    # Plot remaining parameters
+    for i, param in enumerate(other_params):
+        ax_idx = i + len(first_row_params)
+        if ax_idx < len(axes):
+            x, m, s = ofat_results[param]
+            axes[ax_idx].plot(x, m, '-', color='#1f77b4', lw=2)
+            axes[ax_idx].fill_between(x, m-s, m+s, color='#1f77b4', alpha=0.2)
+            axes[ax_idx].set_title(param)
+            axes[ax_idx].set_xlabel(param)
+            axes[ax_idx].set_ylabel('Final fish')
+            axes[ax_idx].grid(True, alpha=0.3)
+    
+    # Hide any unused subplots
+    for ax in axes[len(ofat_results):]:
+        ax.set_visible(False)
+    
     plt.tight_layout()
-    plt.savefig(filename, dpi=200)
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
     print(f"OFAT results saved to {filename}")
     plt.show()
 
 
-def sobol_analysis(param_names, bounds, original_values, sample_size=2048):
+def sobol_analysis(param_names, bounds, original_values, sample_size=1000):
     """Sobol sensitivity analysis with statistically significant sample size"""
     problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
     # Update total runs calculation to include second-order terms
@@ -158,7 +236,7 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=2048):
     X = sobol_sample.sample(problem, sample_size, calc_second_order=True)
     Y = np.zeros(X.shape[0])
     for i, xi in enumerate(tqdm(X, desc='Sobol runs')):
-        for name, val in zip(param_names, xi): setattr(parameters, name, val)
+        update_parameters(param_names, xi)
         Y[i] = run_model()
     
     # Restore original values
@@ -213,24 +291,27 @@ def plot_sobol(Si, param_names, filename='sobol_indices.png'):
     # Second-order interactions heatmap (bottom)
     ax3 = plt.subplot(3, 1, 3)
     S2 = Si['S2']
-    im = ax3.imshow(S2, cmap='YlOrRd', aspect='equal')
+    
+    # Make the S2 matrix symmetric by copying upper triangle to lower triangle
+    S2_symmetric = S2.copy()
+    for i in range(len(param_names)):
+        for j in range(i):
+            S2_symmetric[i,j] = S2_symmetric[j,i]
+    
+    im = ax3.imshow(S2_symmetric, cmap='YlOrRd', aspect='equal')
     plt.colorbar(im, ax=ax3, label='Second-order Sensitivity Index')
     
-    # Add parameter names to axes
+    # Add parameter names to axes with better formatting
     ax3.set_xticks(np.arange(len(param_names)))
     ax3.set_yticks(np.arange(len(param_names)))
-    ax3.set_xticklabels(param_names, rotation=45, ha='right')
-    ax3.set_yticklabels(param_names)
+    ax3.set_xticklabels(param_names, rotation=90, ha='center', fontsize=8)
+    ax3.set_yticklabels(param_names, fontsize=8)
     
-    # Add value annotations to the heatmap
-    for i in range(len(param_names)):
-        for j in range(len(param_names)):
-            text = ax3.text(j, i, f'{S2[i, j]:.3f}',
-                          ha='center', va='center', color='black')
-    
+    # Remove text annotations - show only colors
     ax3.set_title('Second-order Interactions (S2)')
     
-    plt.tight_layout(pad=3.0)
+    # Adjust layout to prevent label cutoff
+    plt.tight_layout(pad=3.0, h_pad=1.0)
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print(f"Sobol prioritization plot saved to {filename}")
     plt.show()
@@ -244,7 +325,7 @@ def morris_analysis(param_names, bounds, original_values, num_trajectories=200, 
     X = morris_sample.sample(problem, N=num_trajectories, num_levels=grid_levels, optimal_trajectories=None)
     Y = np.zeros(X.shape[0])
     for i, xi in enumerate(tqdm(X, desc='Morris runs')):
-        for name, val in zip(param_names, xi): setattr(parameters, name, val)
+        update_parameters(param_names, xi)
         Y[i] = run_model()
     
     # Restore original values
@@ -272,6 +353,85 @@ def plot_morris(Si, param_names, filename='morris_ee.png'):
     plt.show()
 
 
+def focused_ofat_analysis(n_points=25, n_reps=100):
+    """
+    Focused OFAT analysis on the 5 most important parameters identified by Morris screening
+    """
+    # The 5 key parameters from Morris analysis
+    key_params = {
+        'scale': 2,
+        'imitation_period': 5, 
+        'cooperation_increase': 0.2,
+        'q': 0.6,
+        'trust_decrease': 0.2
+    }
+    
+    print(f"Running focused OFAT on {len(key_params)} key parameters")
+    print(f"Points per parameter: {n_points}, Repetitions per point: {n_reps}")
+    
+    ofat_results = {}
+    
+    for param_name, original_val in key_params.items():
+        print(f"\nAnalyzing {param_name} (original value: {original_val})")
+        
+        # Use wider ranges for some parameters that might need it
+        if param_name == 'scale':
+            x = np.linspace(0.5, 4.0, n_points)  # Wider range for scale
+        elif param_name == 'imitation_period':
+            x = np.linspace(1, 15, n_points)  # Wider range, ensure integers
+            x = np.round(x).astype(int)
+        elif param_name == 'cooperation_increase':
+            x = np.linspace(0.05, 0.5, n_points)  # Wider range
+        elif param_name == 'q':
+            x = np.linspace(0.2, 1.0, n_points)  # Wider range
+        elif param_name == 'trust_decrease':
+            x = np.linspace(0.05, 0.5, n_points)  # Wider range
+        else:
+            x = np.linspace(original_val*0.3, original_val*2.0, n_points)  # Default wider range
+        
+        means = np.zeros(n_points)
+        stds = np.zeros(n_points)
+        
+        for i, xi in enumerate(tqdm(x, desc=f"OFAT {param_name}")):
+            # Set the parameter
+            setattr(parameters, param_name, xi)
+            
+            # Handle derived parameters for scale
+            if param_name == 'scale':
+                parameters.rad_repulsion = 0.025 * xi
+                parameters.rad_orientation = 0.06 * xi
+                parameters.rad_attraction = 0.1 * xi
+                parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
+                parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
+                parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+            
+            # Run multiple repetitions
+            Y = [run_model() for _ in range(n_reps)]
+            means[i] = np.mean(Y)
+            stds[i] = np.std(Y, ddof=1)
+        
+        ofat_results[param_name] = (x, means, stds)
+        
+        # Restore original value
+        setattr(parameters, param_name, original_val)
+        if param_name == 'scale':
+            parameters.rad_repulsion = 0.025 * original_val
+            parameters.rad_orientation = 0.06 * original_val
+            parameters.rad_attraction = 0.1 * original_val
+            parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
+            parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
+            parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+        
+        # Print summary
+        effect_size = max(means) - min(means)
+        avg_std = np.mean(stds)
+        signal_to_noise = effect_size / avg_std if avg_std > 0 else 0
+        print(f"  Effect size: {effect_size:.1f} fish")
+        print(f"  Signal-to-noise ratio: {signal_to_noise:.2f}")
+    
+    return ofat_results
+
+
 def main(quick_test=False):
     param_names, bounds, original_values = get_param_names_and_bounds()
     print(f"Parameters included ({len(param_names)}): {param_names}")
@@ -281,47 +441,51 @@ def main(quick_test=False):
         print("\n=== QUICK TEST MODE ===")
         print("Running with reduced sample sizes for testing...")
         
-        # Quick Morris Analysis (least computationally expensive)
-        print("\n=== Running Quick Morris Analysis ===")
-        Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=10, grid_levels=4)
-        plot_morris(Si_m, param_names, filename='morris_ee_quick.png')
+        # # Quick Morris Analysis (least computationally expensive)
+        # print("\n=== Running Quick Morris Analysis ===")
+        # Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=10, grid_levels=4)
+        # plot_morris(Si_m, param_names, filename='morris_ee_quick.png')
         
-        # Quick Sobol Analysis 
+        # Quick Sobol Analysis on all parameters
         print("\n=== Running Quick Sobol Analysis ===")
         Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=32)
         plot_sobol(Si_sob, param_names, filename='sobol_indices_quick.png')
+        
+        # # Quick OFAT Analysis
+        # print("\n=== Running Quick OFAT Analysis ===")
+        # ofat_res = focused_ofat_analysis(n_points=10, n_reps=5)  # Reduced points and reps
+        # plot_ofat(ofat_res, filename='ofat_quick.png')
         
         print("\nQuick test completed. For full statistically significant results, run main(quick_test=False)")
         
     else:
         print("\n=== FULL STATISTICAL ANALYSIS ===")
-        print("WARNING: This will take many hours (18-36+ hours total)!")
-        print("Consider running analyses individually by commenting out others in the code.")
+        print("WARNING: This will take many hours!")
         
         total_runs_estimated = (
             len(param_names) * 25 * 50 +  # OFAT
-            2048 * (len(param_names) + 2) +  # Sobol
+            5000 * (len(param_names) + 2) +  # Sobol with 5000 samples
             200 * (len(param_names) + 1)  # Morris
         )
         print(f"Total estimated model runs: {total_runs_estimated:,}")
         
-        # Morris Analysis (least computationally expensive - start here)
-        print(f"\n=== Running Morris Analysis ===")
-        print(f"Estimated runs: {200 * (len(param_names) + 1):,} (~30-60 minutes)")
-        Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=200, grid_levels=10)
-        plot_morris(Si_m, param_names)
+        # # Morris Analysis (least computationally expensive - start here)
+        # print(f"\n=== Running Morris Analysis ===")
+        # print(f"Estimated runs: {200 * (len(param_names) + 1):,}")
+        # Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=200, grid_levels=10)
+        # plot_morris(Si_m, param_names)
 
-        # Sobol Analysis (moderate computational cost)
+        # Sobol Analysis with 5000 samples
         print(f"\n=== Running Sobol Analysis ===")
-        print(f"Estimated runs: {2048 * (len(param_names) + 2):,} (~2-4 hours)")
-        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=2048)
+        print(f"Estimated runs: {1000 * (len(param_names) + 2):,}")
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=1000)
         plot_sobol(Si_sob, param_names)
         
-        # OFAT Analysis (most computationally expensive - run last)
-        print(f"\n=== Running OFAT Analysis ===")
-        print(f"Estimated runs: {len(param_names) * 25 * 50:,} (~4-8 hours)")
-        ofat_res = ofat_analysis(param_names, original_values, n_points=25, n_reps=50)
-        plot_ofat(ofat_res)
+        # # OFAT Analysis
+        # print(f"\n=== Running OFAT Analysis ===")
+        # print(f"Estimated runs: {len(param_names) * 25 * 50:,}")
+        # ofat_res = focused_ofat_analysis(n_points=25, n_reps=50)
+        # plot_ofat(ofat_res)
     
     # Ensure all parameters are restored to original values
     restore_parameters(param_names, original_values)

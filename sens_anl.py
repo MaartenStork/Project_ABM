@@ -225,95 +225,236 @@ def plot_ofat(ofat_results, filename='ofat_full.png'):
     plt.show()
 
 
-def sobol_analysis(param_names, bounds, original_values, sample_size=1000):
-    """Sobol sensitivity analysis with statistically significant sample size"""
-    problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
-    # Update total runs calculation to include second-order terms
-    total_runs = sample_size * (2*len(param_names) + 2)  # Formula for second-order
-    print(f"Sampling for Sobol: N={sample_size} (Total model runs: {total_runs})")
+def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type='all'):
+    """
+    Sobol sensitivity analysis with options to run specific Sobol index types
     
-    # Enable second-order calculations
-    X = sobol_sample.sample(problem, sample_size, calc_second_order=True)
+    Parameters:
+    -----------
+    param_names : list
+        List of parameter names
+    bounds : list
+        Parameter bounds
+    original_values : list
+        Original parameter values to restore
+    sample_size : int
+        Number of samples for Sobol analysis
+    sobol_type : str
+        Type of Sobol analysis to run:
+        - 'all': Run all indices (first-order, second-order, total-order) [default]
+        - 'first': Run only first-order indices (S1)
+        - 'second': Run only second-order indices (S2) 
+        - 'total': Run only total-order indices (ST)
+        - 'first_total': Run first-order and total-order (most common combination)
+    
+    Returns:
+    --------
+    dict : Sobol indices results
+    """
+    valid_types = ['all', 'first', 'second', 'total', 'first_total']
+    if sobol_type not in valid_types:
+        raise ValueError(f"sobol_type must be one of {valid_types}")
+    
+    problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
+    
+    # Determine calculation requirements
+    calc_second_order = sobol_type in ['all', 'second']
+    
+    # Calculate total runs based on what we're computing
+    if sobol_type == 'first':
+        total_runs = sample_size * (len(param_names) + 2)  # Formula for first-order only
+    elif sobol_type == 'second':
+        total_runs = sample_size * (2*len(param_names) + 2)  # Need second-order
+    elif sobol_type == 'total':
+        total_runs = sample_size * (len(param_names) + 2)  # Formula for total-order
+    elif sobol_type == 'first_total':
+        total_runs = sample_size * (len(param_names) + 2)  # Same as first/total
+    else:  # 'all'
+        total_runs = sample_size * (2*len(param_names) + 2)  # Formula for all indices
+    
+    print(f"Sampling for Sobol ({sobol_type}): N={sample_size} (Total model runs: {total_runs})")
+    
+    # Generate samples
+    X = sobol_sample.sample(problem, sample_size, calc_second_order=calc_second_order)
     Y = np.zeros(X.shape[0])
-    for i, xi in enumerate(tqdm(X, desc='Sobol runs')):
+    
+    # Run model evaluations
+    for i, xi in enumerate(tqdm(X, desc=f'Sobol runs ({sobol_type})')):
         update_parameters(param_names, xi)
         Y[i] = run_model()
     
     # Restore original values
     restore_parameters(param_names, original_values)
     
-    # Enable second-order in analysis
-    Si = sobol_analyze.analyze(problem, Y, calc_second_order=True, print_to_console=True)
-    return Si
+    # Analyze results based on type requested
+    Si = sobol_analyze.analyze(problem, Y, calc_second_order=calc_second_order, print_to_console=True)
+    
+    # Filter results based on requested type
+    if sobol_type == 'first':
+        # Keep only first-order indices
+        filtered_Si = {
+            'S1': Si['S1'],
+            'S1_conf': Si['S1_conf'],
+            'names': Si.get('names', param_names)
+        }
+        print("\n=== FIRST-ORDER SOBOL INDICES ONLY ===")
+        for i, name in enumerate(param_names):
+            print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}")
+            
+    elif sobol_type == 'second':
+        # Keep only second-order indices
+        filtered_Si = {
+            'S2': Si['S2'],
+            'S2_conf': Si['S2_conf'],
+            'names': Si.get('names', param_names)
+        }
+        print("\n=== SECOND-ORDER SOBOL INDICES ONLY ===")
+        print("Parameter interactions (S2):")
+        for i in range(len(param_names)):
+            for j in range(i+1, len(param_names)):
+                print(f"{param_names[i]} × {param_names[j]}: S2 = {Si['S2'][i,j]:.3f} ± {Si['S2_conf'][i,j]:.3f}")
+                
+    elif sobol_type == 'total':
+        # Keep only total-order indices  
+        filtered_Si = {
+            'ST': Si['ST'],
+            'ST_conf': Si['ST_conf'],
+            'names': Si.get('names', param_names)
+        }
+        print("\n=== TOTAL-ORDER SOBOL INDICES ONLY ===")
+        for i, name in enumerate(param_names):
+            print(f"{name}: ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
+            
+    elif sobol_type == 'first_total':
+        # Keep first-order and total-order indices
+        filtered_Si = {
+            'S1': Si['S1'],
+            'S1_conf': Si['S1_conf'],
+            'ST': Si['ST'],
+            'ST_conf': Si['ST_conf'],
+            'names': Si.get('names', param_names)
+        }
+        print("\n=== FIRST-ORDER AND TOTAL-ORDER SOBOL INDICES ===")
+        for i, name in enumerate(param_names):
+            print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}, ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
+            
+    else:  # 'all'
+        filtered_Si = Si
+        print("\n=== ALL SOBOL INDICES ===")
+        print("First-order indices:")
+        for i, name in enumerate(param_names):
+            print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}")
+        print("\nTotal-order indices:")
+        for i, name in enumerate(param_names):
+            print(f"{name}: ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
+        print("\nTop second-order interactions:")
+        interactions = []
+        for i in range(len(param_names)):
+            for j in range(i+1, len(param_names)):
+                interactions.append((param_names[i], param_names[j], Si['S2'][i,j]))
+        interactions.sort(key=lambda x: abs(x[2]), reverse=True)
+        for p1, p2, s2 in interactions[:5]:  # Show top 5 interactions
+            print(f"{p1} × {p2}: S2 = {s2:.3f}")
+    
+    return filtered_Si
 
 
-def plot_sobol(Si, param_names, filename='sobol_indices.png'):
-    # First-order indices (keep existing horizontal bar plot)
-    S1 = np.array(Si['S1'])
-    S1_conf = np.array(Si['S1_conf'])
-    idx = np.argsort(-S1)
-    sorted_names = [param_names[i] for i in idx]
-    sorted_S1 = S1[idx]
-    sorted_conf = S1_conf[idx]
+def plot_sobol(Si, param_names, filename='sobol_indices.png', sobol_type='all'):
+    """
+    Plot Sobol indices based on available data
     
-    # Create figure with 3 subplots arranged vertically
-    fig = plt.figure(figsize=(12, 20))
+    Parameters:
+    -----------
+    Si : dict
+        Sobol indices results
+    param_names : list
+        Parameter names
+    filename : str
+        Output filename
+    sobol_type : str
+        Type of analysis that was run (determines plotting style)
+    """
     
-    # First-order indices plot (top)
-    ax1 = plt.subplot(3, 1, 1)
-    y_pos = np.arange(len(sorted_names))
-    ax1.barh(y_pos, sorted_S1, xerr=sorted_conf, align='center', color='skyblue', ecolor='gray', capsize=4)
-    ax1.set_yticks(y_pos)
-    ax1.set_yticklabels(sorted_names)
-    ax1.invert_yaxis()
-    ax1.set_xlabel('First-order Sobol index')
-    ax1.set_title('First-order Sensitivity Indices (S1)')
-    ax1.grid(axis='x', linestyle='--', alpha=0.5)
+    # Determine what indices are available
+    has_first = 'S1' in Si
+    has_total = 'ST' in Si  
+    has_second = 'S2' in Si
     
-    # Total-order indices plot (middle)
-    ax2 = plt.subplot(3, 1, 2)
-    ST = np.array(Si['ST'])
-    ST_conf = np.array(Si['ST_conf'])
-    idx_t = np.argsort(-ST)
-    sorted_names_t = [param_names[i] for i in idx_t]
-    sorted_ST = ST[idx_t]
-    sorted_ST_conf = ST_conf[idx_t]
+    # Create appropriate subplot layout
+    n_plots = sum([has_first, has_total, has_second])
+    if n_plots == 0:
+        print("No Sobol indices to plot!")
+        return
+        
+    fig = plt.figure(figsize=(12, 6*n_plots))
+    plot_idx = 1
     
-    y_pos = np.arange(len(sorted_names_t))
-    ax2.barh(y_pos, sorted_ST, xerr=sorted_ST_conf, align='center', color='lightgreen', ecolor='gray', capsize=4)
-    ax2.set_yticks(y_pos)
-    ax2.set_yticklabels(sorted_names_t)
-    ax2.invert_yaxis()
-    ax2.set_xlabel('Total-order Sobol index')
-    ax2.set_title('Total-order Sensitivity Indices (ST)')
-    ax2.grid(axis='x', linestyle='--', alpha=0.5)
+    # First-order indices plot
+    if has_first:
+        S1 = np.array(Si['S1'])
+        S1_conf = np.array(Si['S1_conf'])
+        idx = np.argsort(-S1)
+        sorted_names = [param_names[i] for i in idx]
+        sorted_S1 = S1[idx]
+        sorted_conf = S1_conf[idx]
+        
+        ax1 = plt.subplot(n_plots, 1, plot_idx)
+        y_pos = np.arange(len(sorted_names))
+        ax1.barh(y_pos, sorted_S1, xerr=sorted_conf, align='center', color='skyblue', ecolor='gray', capsize=4)
+        ax1.set_yticks(y_pos)
+        ax1.set_yticklabels(sorted_names)
+        ax1.invert_yaxis()
+        ax1.set_xlabel('First-order Sobol index')
+        ax1.set_title('First-order Sensitivity Indices (S1)')
+        ax1.grid(axis='x', linestyle='--', alpha=0.5)
+        plot_idx += 1
     
-    # Second-order interactions heatmap (bottom)
-    ax3 = plt.subplot(3, 1, 3)
-    S2 = Si['S2']
+    # Total-order indices plot
+    if has_total:
+        ST = np.array(Si['ST'])
+        ST_conf = np.array(Si['ST_conf'])
+        idx_t = np.argsort(-ST)
+        sorted_names_t = [param_names[i] for i in idx_t]
+        sorted_ST = ST[idx_t]
+        sorted_ST_conf = ST_conf[idx_t]
+        
+        ax2 = plt.subplot(n_plots, 1, plot_idx)
+        y_pos = np.arange(len(sorted_names_t))
+        ax2.barh(y_pos, sorted_ST, xerr=sorted_ST_conf, align='center', color='lightgreen', ecolor='gray', capsize=4)
+        ax2.set_yticks(y_pos)
+        ax2.set_yticklabels(sorted_names_t)
+        ax2.invert_yaxis()
+        ax2.set_xlabel('Total-order Sobol index')
+        ax2.set_title('Total-order Sensitivity Indices (ST)')
+        ax2.grid(axis='x', linestyle='--', alpha=0.5)
+        plot_idx += 1
     
-    # Make the S2 matrix symmetric by copying upper triangle to lower triangle
-    S2_symmetric = S2.copy()
-    for i in range(len(param_names)):
-        for j in range(i):
-            S2_symmetric[i,j] = S2_symmetric[j,i]
-    
-    im = ax3.imshow(S2_symmetric, cmap='YlOrRd', aspect='equal')
-    plt.colorbar(im, ax=ax3, label='Second-order Sensitivity Index')
-    
-    # Add parameter names to axes with better formatting
-    ax3.set_xticks(np.arange(len(param_names)))
-    ax3.set_yticks(np.arange(len(param_names)))
-    ax3.set_xticklabels(param_names, rotation=90, ha='center', fontsize=8)
-    ax3.set_yticklabels(param_names, fontsize=8)
-    
-    # Remove text annotations - show only colors
-    ax3.set_title('Second-order Interactions (S2)')
+    # Second-order interactions heatmap
+    if has_second:
+        ax3 = plt.subplot(n_plots, 1, plot_idx)
+        S2 = Si['S2']
+        
+        # Make the S2 matrix symmetric by copying upper triangle to lower triangle
+        S2_symmetric = S2.copy()
+        for i in range(len(param_names)):
+            for j in range(i):
+                S2_symmetric[i,j] = S2_symmetric[j,i]
+        
+        im = ax3.imshow(S2_symmetric, cmap='YlOrRd', aspect='equal')
+        plt.colorbar(im, ax=ax3, label='Second-order Sensitivity Index')
+        
+        # Add parameter names to axes with better formatting
+        ax3.set_xticks(np.arange(len(param_names)))
+        ax3.set_yticks(np.arange(len(param_names)))
+        ax3.set_xticklabels(param_names, rotation=90, ha='center', fontsize=8)
+        ax3.set_yticklabels(param_names, fontsize=8)
+        
+        ax3.set_title('Second-order Interactions (S2)')
     
     # Adjust layout to prevent label cutoff
     plt.tight_layout(pad=3.0, h_pad=1.0)
     plt.savefig(filename, dpi=300, bbox_inches='tight')
-    print(f"Sobol prioritization plot saved to {filename}")
+    print(f"Sobol plot ({sobol_type}) saved to {filename}")
     plt.show()
 
 
@@ -432,67 +573,95 @@ def focused_ofat_analysis(n_points=25, n_reps=100):
     return ofat_results
 
 
-def main(quick_test=False):
+def main(quick_test=False, sobol_type='all'):
+    """
+    Main sensitivity analysis function
+    
+    Parameters:
+    -----------
+    quick_test : bool
+        Whether to run quick test with reduced sample sizes
+    sobol_type : str
+        Type of Sobol analysis to run:
+        - 'all': All indices (first-order, second-order, total-order) [default]
+        - 'first': Only first-order indices (S1)
+        - 'second': Only second-order indices (S2)
+        - 'total': Only total-order indices (ST)  
+        - 'first_total': First-order and total-order indices
+    """
     param_names, bounds, original_values = get_param_names_and_bounds()
     print(f"Parameters included ({len(param_names)}): {param_names}")
     print(f"reproduction_rate included: {'reproduction_rate' in param_names}")
+    print(f"Sobol analysis type: {sobol_type}")
     
     if quick_test:
         print("\n=== QUICK TEST MODE ===")
         print("Running with reduced sample sizes for testing...")
         
-        # # Quick Morris Analysis (least computationally expensive)
-        # print("\n=== Running Quick Morris Analysis ===")
-        # Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=10, grid_levels=4)
-        # plot_morris(Si_m, param_names, filename='morris_ee_quick.png')
+        # Quick Sobol Analysis with specified type
+        print(f"\n=== Running Quick Sobol Analysis ({sobol_type}) ===")
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=32, sobol_type=sobol_type)
+        plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}_quick.png', sobol_type=sobol_type)
         
-        # Quick Sobol Analysis on all parameters
-        print("\n=== Running Quick Sobol Analysis ===")
-        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=32)
-        plot_sobol(Si_sob, param_names, filename='sobol_indices_quick.png')
-        
-        # # Quick OFAT Analysis
-        # print("\n=== Running Quick OFAT Analysis ===")
-        # ofat_res = focused_ofat_analysis(n_points=10, n_reps=5)  # Reduced points and reps
-        # plot_ofat(ofat_res, filename='ofat_quick.png')
-        
-        print("\nQuick test completed. For full statistically significant results, run main(quick_test=False)")
+        print(f"\nQuick test completed for {sobol_type} indices. For full statistically significant results, run main(quick_test=False)")
         
     else:
         print("\n=== FULL STATISTICAL ANALYSIS ===")
         print("WARNING: This will take many hours!")
         
+        # Calculate estimated runs based on sobol_type
+        if sobol_type == 'first':
+            sobol_runs = 1000 * (len(param_names) + 2)
+        elif sobol_type == 'second':
+            sobol_runs = 1000 * (2*len(param_names) + 2)
+        elif sobol_type == 'total':
+            sobol_runs = 1000 * (len(param_names) + 2)
+        elif sobol_type == 'first_total':
+            sobol_runs = 1000 * (len(param_names) + 2)
+        else:  # 'all'
+            sobol_runs = 1000 * (2*len(param_names) + 2)
+            
         total_runs_estimated = (
-            len(param_names) * 25 * 50 +  # OFAT
-            5000 * (len(param_names) + 2) +  # Sobol with 5000 samples
-            200 * (len(param_names) + 1)  # Morris
+            len(param_names) * 25 * 50 +  # OFAT (if enabled)
+            sobol_runs +  # Sobol with specified type
+            200 * (len(param_names) + 1)  # Morris (if enabled)
         )
         print(f"Total estimated model runs: {total_runs_estimated:,}")
-        
-        # # Morris Analysis (least computationally expensive - start here)
-        # print(f"\n=== Running Morris Analysis ===")
-        # print(f"Estimated runs: {200 * (len(param_names) + 1):,}")
-        # Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=200, grid_levels=10)
-        # plot_morris(Si_m, param_names)
 
-        # Sobol Analysis with 5000 samples
-        print(f"\n=== Running Sobol Analysis ===")
-        print(f"Estimated runs: {1000 * (len(param_names) + 2):,}")
-        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=1000)
-        plot_sobol(Si_sob, param_names)
-        
-        # # OFAT Analysis
-        # print(f"\n=== Running OFAT Analysis ===")
-        # print(f"Estimated runs: {len(param_names) * 25 * 50:,}")
-        # ofat_res = focused_ofat_analysis(n_points=25, n_reps=50)
-        # plot_ofat(ofat_res)
+        # Sobol Analysis with specified type
+        print(f"\n=== Running Sobol Analysis ({sobol_type}) ===")
+        print(f"Estimated runs: {sobol_runs:,}")
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type=sobol_type)
+        plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}.png', sobol_type=sobol_type)
     
     # Ensure all parameters are restored to original values
     restore_parameters(param_names, original_values)
     print("\nAll parameters restored to original values.")
+    
+    return Si_sob
 
 if __name__=='__main__':
     import sys
-    # Run quick test if 'quick' is passed as argument, otherwise run full analysis
-    quick_mode = len(sys.argv) > 1 and sys.argv[1] == 'quick'
-    main(quick_test=quick_mode)
+    
+    # Parse command line arguments
+    quick_mode = False
+    sobol_type = 'all'
+    
+    if len(sys.argv) > 1:
+        for arg in sys.argv[1:]:
+            if arg == 'quick':
+                quick_mode = True
+            elif arg in ['all', 'first', 'second', 'total', 'first_total']:
+                sobol_type = arg
+    
+    print(f"Running sensitivity analysis with:")
+    print(f"  Quick mode: {quick_mode}")
+    print(f"  Sobol type: {sobol_type}")
+    print(f"\nUsage: python sens_anl.py [quick] [all|first|second|total|first_total]")
+    print(f"Examples:")
+    print(f"  python sens_anl.py quick first       # Quick test, first-order only")
+    print(f"  python sens_anl.py total            # Full analysis, total-order only")
+    print(f"  python sens_anl.py quick first_total # Quick test, first + total order")
+    print(f"  python sens_anl.py                  # Full analysis, all indices")
+    
+    main(quick_test=quick_mode, sobol_type=sobol_type)

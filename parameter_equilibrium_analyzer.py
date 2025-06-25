@@ -337,36 +337,82 @@ def analyze_results(results):
         'best_parameters': best_params.to_dict()
     }
 
-def save_results(results, analysis, output_dir="simulation_output"):
+def save_results(results, analysis, output_dir):
     """
-    Save simulation results and analysis to files.
+    Save parameter sweep results and analysis to files.
     
     Parameters:
     -----------
     results : list
-        List of simulation results
+        List of simulation results from parameter_sweep
     analysis : dict
         Analysis results from analyze_results
     output_dir : str
-        Directory to save results
+        Directory to save results to
     """
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
+    # Save results to JSON
+    results_file = os.path.join(output_dir, "parameter_sweep_results.json")
     
-    # Save raw results
-    with open(os.path.join(output_dir, "parameter_sweep_results.json"), "w") as f:
-        # Convert ndarray to list for JSON serialization
-        json_results = []
-        for result in results:
-            if 'fish_counts' in result:
-                result['fish_counts'] = [float(x) for x in result['fish_counts']]
-            json_results.append(result)
+    # Convert results to JSON-serializable format
+    json_results = {'results': [], 'analysis': {}}
+    
+    # Process individual results
+    for result in results:
+        json_result = {}
+        for key, value in result.items():
+            # Handle fish_counts (potentially numpy arrays)
+            if key == 'fish_counts':
+                json_result[key] = [int(count) for count in value]
+            # Handle params dictionary
+            elif key == 'params':
+                json_result[key] = {k: float(v) if isinstance(v, (np.float32, np.float64)) else int(v) if isinstance(v, np.integer) else v 
+                                   for k, v in value.items()}
+            # Handle other numpy types
+            elif isinstance(value, (np.integer, np.floating)):
+                json_result[key] = float(value) if isinstance(value, np.floating) else int(value)
+            else:
+                json_result[key] = value
+        json_results['results'].append(json_result)
+    
+    # Process analysis results
+    for key, value in analysis.items():
+        if key == 'equilibrium_ranges':
+            # Handle equilibrium ranges
+            json_results['analysis'][key] = {}
+            for param, ranges in value.items():
+                json_results['analysis'][key][param] = {
+                    'min': float(ranges['min']),
+                    'max': float(ranges['max']),
+                    'values': [float(v) for v in ranges['values']]
+                }
+        elif key == 'best_parameters':
+            # Handle best parameters
+            if value is not None:
+                json_results['analysis'][key] = {k: float(v) if isinstance(v, (np.float32, np.float64, float)) 
+                                              else int(v) if isinstance(v, (np.integer, int)) else v 
+                                              for k, v in value.items()}
+            else:
+                json_results['analysis'][key] = None
+        elif key == 'status_counts':
+            # Handle status counts
+            json_results['analysis'][key] = {k: int(v) for k, v in value.items()}
+        else:
+            # Handle other values
+            json_results['analysis'][key] = float(value) if isinstance(value, (np.float32, np.float64, float)) else value
+    
+    try:
+        with open(os.path.join(output_dir, "parameter_sweep_results.json"), 'w') as f:
+            json.dump(json_results, f, indent=2)
+        print(f"Results saved to {os.path.join(output_dir, 'parameter_sweep_results.json')}")
+    except Exception as e:
+        print(f"Error saving results to JSON: {e}")
         
-        json.dump(json_results, f, indent=2)
-    
-    # Save analysis results
-    with open(os.path.join(output_dir, "parameter_analysis.json"), "w") as f:
-        json.dump(analysis, f, indent=2)
+        # Fallback: save as pickle
+        pickle_file = os.path.join(output_dir, "parameter_sweep_results.pkl")
+        import pickle
+        with open(pickle_file, 'wb') as f:
+            pickle.dump({'results': results, 'analysis': analysis}, f)
+        print(f"Results saved as pickle to {pickle_file}")
     
     # Create parameter range plots
     if len(analysis['equilibrium_ranges']) > 0:
@@ -378,7 +424,8 @@ def save_results(results, analysis, output_dir="simulation_output"):
         eq_df = pd.DataFrame([
             {
                 **r['params'],
-                'equilibrium_value': r['equilibrium_value']
+                'equilibrium_value': r['equilibrium_value'],
+                'equilibrium_certainty': calculate_equilibrium_certainty(r)
             }
             for r in equilibrium_data
         ])
@@ -394,13 +441,13 @@ def save_results(results, analysis, output_dir="simulation_output"):
                     scatter = plt.scatter(
                         eq_df[param1], 
                         eq_df[param2], 
-                        c=eq_df['equilibrium_value'],
+                        c=eq_df['equilibrium_certainty'],
                         cmap='viridis', 
                         alpha=0.7,
                         s=50
                     )
                     
-                    plt.colorbar(scatter, label='Equilibrium Fish Count')
+                    plt.colorbar(scatter, label='Equilibrium Certainty Score')
                     plt.xlabel(param1)
                     plt.ylabel(param2)
                     plt.title(f'Parameter Combinations Leading to Equilibrium')
@@ -463,7 +510,7 @@ def plot_sample_trajectories(results, num_samples=5, output_dir="simulation_outp
         plt.ylabel('Fish Count')
         plt.title('Fish Population Trajectories (Equilibrium Reached)')
         plt.grid(alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        # plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.savefig(os.path.join(plot_dir, "equilibrium_trajectories.png"), dpi=300)
         plt.close()
@@ -481,7 +528,7 @@ def plot_sample_trajectories(results, num_samples=5, output_dir="simulation_outp
         plt.ylabel('Fish Count')
         plt.title('Fish Population Trajectories (No Equilibrium)')
         plt.grid(alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        # plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.savefig(os.path.join(plot_dir, "non_equilibrium_trajectories.png"), dpi=300)
         plt.close()
@@ -494,10 +541,10 @@ if __name__ == "__main__":
     # Define parameter ranges to test
     # Using smaller ranges for an initial test
     param_ranges = {
-        'rad_repulsion': np.linspace(0.01, 0.1, 3),  # Range for repulsion radius
-        'rad_orientation': np.linspace(0.02, 0.15, 3),  # Range for orientation radius
-        'imitation_radius': np.linspace(0.1, 0.5, 3),  # Range for imitation radius
-        'noncoop': np.array([2, 4, 8]),  # Different values for non-cooperative agents
+        'rad_repulsion': np.linspace(0.01, 0.1, 2),  # Range for repulsion radius
+        'rad_orientation': np.linspace(0.02, 0.15, 2),  # Range for orientation radius
+        'imitation_radius': np.linspace(0.1, 0.5, 2),  # Range for imitation radius
+        'noncoop': np.array([4]),  # Different values for non-cooperative agents
     }
     
     print(f"Parameter ranges to test: {param_ranges}")
@@ -534,6 +581,9 @@ if __name__ == "__main__":
         
         # Plot sample trajectories
         plot_sample_trajectories(results, output_dir=output_dir)
+        
+        # Plot parameter relationships
+        plot_parameter_relationships(results, output_dir)
         
         print(f"\nResults saved to {output_dir}")
     else:

@@ -38,6 +38,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import DynamicCoop as dc
 import parameters
+import pandas as pd
+import os
 
 # For Sobol sampling
 from SALib.sample import sobol as sobol_sample
@@ -254,7 +256,11 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol
     valid_types = ['all', 'first', 'second', 'total', 'first_total']
     if sobol_type not in valid_types:
         raise ValueError(f"sobol_type must be one of {valid_types}")
-    
+
+    save_file = f'sobol_output_{sobol_type}_{sample_size}.csv'
+    if os.path.exists(save_file):
+        os.remove(save_file)
+
     problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
     
     # Determine calculation requirements
@@ -277,11 +283,29 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol
     # Generate samples
     X = sobol_sample.sample(problem, sample_size, calc_second_order=calc_second_order)
     Y = np.zeros(X.shape[0])
+    batch_buffer = []
+    write_batch_size = 10
     
     # Run model evaluations
     for i, xi in enumerate(tqdm(X, desc=f'Sobol runs ({sobol_type})')):
         update_parameters(param_names, xi)
         Y[i] = run_model()
+
+        # Collect row
+        row = dict(zip(param_names, xi))
+        row['model_output'] = Y[i]
+        batch_buffer.append(row)
+
+        # Write batch to CSV
+        if len(batch_buffer) >= write_batch_size:
+            df_batch = pd.DataFrame(batch_buffer)
+            df_batch.to_csv(save_file, mode='a', header=not os.path.exists(save_file), index=False)
+            batch_buffer = []
+
+    # Write any remaining rows
+    if batch_buffer:
+        df_batch = pd.DataFrame(batch_buffer)
+        df_batch.to_csv(save_file, mode='a', header=not os.path.exists(save_file), index=False)
     
     # Restore original values
     restore_parameters(param_names, original_values)
@@ -611,7 +635,7 @@ def main(quick_test=False, sobol_type='all'):
         
         # Calculate estimated runs based on sobol_type
         if sobol_type == 'first':
-            sobol_runs = 1000 * (len(param_names) + 2)
+            sobol_runs = 350 * (len(param_names) + 2)
         elif sobol_type == 'second':
             sobol_runs = 1000 * (2*len(param_names) + 2)
         elif sobol_type == 'total':
@@ -631,7 +655,7 @@ def main(quick_test=False, sobol_type='all'):
         # Sobol Analysis with specified type
         print(f"\n=== Running Sobol Analysis ({sobol_type}) ===")
         print(f"Estimated runs: {sobol_runs:,}")
-        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type=sobol_type)
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=350, sobol_type=sobol_type)
         plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}.png', sobol_type=sobol_type)
     
     # Ensure all parameters are restored to original values

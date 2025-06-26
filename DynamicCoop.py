@@ -213,7 +213,7 @@ def observe():
     if len(fish) > 0:
         subtypes = list(set([ag.subtype for ag in fish]))
         subtypes.sort()  # optional: for consistent ordering
-        cmap = plt.colormaps.get_cmap('viridis')
+        cmap = plt.cm.get_cmap('viridis')
         colors = [cmap(i / len(subtypes)) for i in range(len(subtypes))]
         for i, subtype in enumerate(subtypes):
             subtype_fish = [ag for ag in fish if ag.subtype == subtype]

@@ -28,6 +28,7 @@ try:
     from parameters import *
     print("Successfully imported parameters")
     import DynamicCoop as sim
+    from DynamicCoop import agent
     print("Successfully imported DynamicCoop")
 except Exception as e:
     print(f"Error importing modules: {e}")
@@ -148,41 +149,53 @@ def run_simulation_with_params(params):
             original_params[param_name] = globals()[param_name]
             globals()[param_name] = params[param_name]
     
-    # Reset the simulation
-    try:
-        print("Initializing simulation...")
-        sim.initialize('both')
+    # Set parameters for this run
+    for param_name, value in params.items():
+        if param_name == 'reproduction_rate':
+            # reproduction_rate is handled during initialization
+            continue
+        elif hasattr(sim, param_name):
+            setattr(sim, param_name, value)
+    
+    print(f"Running simulation with params: {params}")
+    
+    # Initialize simulation
+    print("Initializing simulation...")
+    
+    # Special handling for reproduction_rate
+    if 'reproduction_rate' in params:
+        # Store the original reproduction rate value
+        reproduction_rate_value = params['reproduction_rate']
         
-        # Run the simulation but capture the fish counts without plotting
-        fish_counts = [sim.K]  # Start with carrying capacity
+        # Monkey patch the agent initialization to set reproduction_rate
+        original_agent_init = agent.__init__
         
-        print(f"Running simulation for {sim.n} time steps...")
-        for j in range(1, sim.n):
-            sim.update_one_unit_time()
-            sim.observe()
-            fish_counts.append(sim.total_fish_count[-1])
-            
-            # Print progress occasionally
-            if j % 50 == 0:
-                print(f"  Step {j}/{sim.n}: Fish count = {fish_counts[-1]}")
-                
-        print(f"Simulation complete. Final fish count: {fish_counts[-1]}")
-    except Exception as e:
-        print(f"Error during simulation: {e}")
-        traceback.print_exc()
+        def modified_agent_init(self, **kwargs):
+            # Call the original init
+            original_agent_init(self, **kwargs)
+            # If this is a fish agent being created, set the reproduction rate
+            if getattr(self, 'type', None) == 'fish':
+                self.reproduction_rate = reproduction_rate_value
         
-        # Restore original parameters
-        for param_name in original_params:
-            if param_name == 'noncoop':
-                sim.noncoop = original_params[param_name]
-            elif param_name != 'reproduction_rate':  # Skip reproduction_rate
-                globals()[param_name] = original_params[param_name]
-                
-        return {
-            'params': params,
-            'equilibrium_reached': False,
-            'error': str(e)
-        }
+        # Replace the agent init method temporarily
+        agent.__init__ = modified_agent_init
+    
+    # Initialize with modified parameters
+    sim.initialize('both')
+    
+    # Run simulation
+    time_steps = 150
+    print(f"Running simulation for {time_steps} time steps...")
+    
+    fish_counts = []
+    for step in range(time_steps):
+        sim.update_fish()
+        fish_counts.append(sim.total_fish_count[-1])
+        
+        if step % 50 == 0:
+            print(f"  Step {step}/{time_steps}: Fish count = {fish_counts[-1]}")
+    
+    print(f"Simulation complete. Final fish count: {fish_counts[-1]}")
     
     # Check if equilibrium was reached
     eq_reached, eq_value, eq_time, eq_status = is_equilibrium(
@@ -193,10 +206,11 @@ def run_simulation_with_params(params):
     
     # Restore original parameters
     for param_name in original_params:
-        if param_name == 'noncoop':
-            sim.noncoop = original_params[param_name]
-        else:
-            globals()[param_name] = original_params[param_name]
+        setattr(sim, param_name, original_params[param_name])
+    
+    # Restore original agent.__init__ method if modified
+    if 'reproduction_rate' in params:
+        agent.__init__ = original_agent_init
     
     return {
         'params': params,
@@ -247,20 +261,65 @@ def parameter_sweep(param_ranges, num_processes=4):
     
     return results
 
-def analyze_results(results):
+def analyze_results(results, output_dir='simulation_output/parameter_scan'):
     """
-    Analyze parameter sweep results and visualize equilibrium regions.
+    Analyze the results of the parameter sweep and generate visualizations.
     
     Parameters:
     -----------
     results : list
-        List of simulation results from parameter_sweep
-        
-    Returns:
-    --------
-    dict
-        Dictionary containing analysis results
+        List of dictionaries containing simulation results
+    output_dir : str
+        Directory to save output files
     """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Extract parameters and results
+    params_list = []
+    eq_values = []
+    eq_reached = []
+    eq_times = []
+    eq_status = []
+    fish_counts_list = []
+    certainty_scores = []
+    
+    for result in results:
+        if 'error' in result:
+            continue
+            
+        params_list.append(result['params'])
+        eq_values.append(result['equilibrium_value'] if result['equilibrium_reached'] else 0)
+        eq_reached.append(result['equilibrium_reached'])
+        eq_times.append(result['time_to_equilibrium'] if result['equilibrium_reached'] else 0)
+        eq_status.append(result['status'])
+        fish_counts_list.append(result['fish_counts'])
+        
+        # Calculate certainty score for this result
+        if result['equilibrium_reached']:
+            certainty_score = calculate_equilibrium_certainty(result['fish_counts'])
+        else:
+            certainty_score = 0
+        certainty_scores.append(certainty_score)
+        
+    # Create a DataFrame for easier analysis and CSV export
+    data = []
+    for i, params in enumerate(params_list):
+        row = params.copy()
+        row['equilibrium_reached'] = eq_reached[i]
+        row['equilibrium_value'] = eq_values[i]
+        row['time_to_equilibrium'] = eq_times[i]
+        row['status'] = eq_status[i]
+        row['certainty_score'] = certainty_scores[i]
+        data.append(row)
+    
+    df = pd.DataFrame(data)
+    
+    # Save to CSV
+    csv_path = os.path.join(output_dir, 'parameter_sweep_results.csv')
+    df.to_csv(csv_path, index=False)
+    print(f"Results saved to CSV: {csv_path}")
+    
     # Convert results to DataFrame for easier analysis
     results_df = pd.DataFrame([
         {
@@ -350,9 +409,25 @@ def save_results(results, analysis, output_dir):
     output_dir : str
         Directory to save results to
     """
-    # Save results to JSON
-    results_file = os.path.join(output_dir, "parameter_sweep_results.json")
+    # Save the results
+    save_results(results, os.path.join(output_dir, 'parameter_sweep_results.json'))
     
+    # Analyze the results
+    analyze_results(results, output_dir)
+    
+    print("Results saved to CSV file in the output directory.")
+
+def save_results_to_json(results, output_file):
+    """
+    Save parameter sweep results to a JSON file.
+    
+    Parameters:
+    -----------
+    results : list
+        List of simulation results from parameter_sweep
+    output_file : str
+        Path to save the JSON file
+    """
     # Convert results to JSON-serializable format
     json_results = {'results': [], 'analysis': {}}
     
@@ -541,10 +616,11 @@ if __name__ == "__main__":
     # Define parameter ranges to test
     # Using smaller ranges for an initial test
     param_ranges = {
-        'rad_repulsion': np.linspace(0.01, 0.1, 2),  # Range for repulsion radius
-        'rad_orientation': np.linspace(0.02, 0.15, 2),  # Range for orientation radius
-        'imitation_radius': np.linspace(0.1, 0.5, 2),  # Range for imitation radius
-        'noncoop': np.array([4]),  # Different values for non-cooperative agents
+    'rad_repulsion': np.logspace(np.log10(0.005), np.log10(0.2), 2),
+    'reproduction_rate': np.logspace(np.log10(0.01), np.log10(0.8), 2),
+    'imitation_radius': np.logspace(np.log10(0.05), np.log10(0.8), 2),
+    'rad_orientation': np.logspace(np.log10(0.01), np.log10(0.2), 2),
+    'noncoop': np.array([2, 4])
     }
     
     print(f"Parameter ranges to test: {param_ranges}")

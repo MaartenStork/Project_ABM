@@ -131,6 +131,10 @@ def is_equilibrium(fish_counts, window_size=30, threshold=0.05, warm_up_period=5
     if np.mean(post_warmup[-window_size:]) < extinction_threshold:
         return False, None, None, "extinction"
     
+    # Check if fish population reaches 500 (unchecked growth)
+    if np.max(post_warmup) >= 500:
+        return False, None, None, "unchecked_growth"
+    
     # Check for continuous growth
     if growth_check and len(post_warmup) >= window_size * 2:
         # Compare first and second half of the post-warmup period

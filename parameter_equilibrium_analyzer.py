@@ -460,13 +460,19 @@ def save_results(results, analysis, output_dir):
     output_dir : str
         Directory to save results to
     """
-    # Save the results
-    save_results(results, os.path.join(output_dir, 'parameter_sweep_results.json'))
+    # Save the results to JSON
+    save_results_to_json(results, os.path.join(output_dir, 'parameter_sweep_results.json'))
     
-    # Analyze the results
-    analyze_results(results, output_dir)
+    # Save analysis to JSON
+    try:
+        with open(os.path.join(output_dir, 'analysis_results.json'), 'w') as f:
+            json.dump(analysis, f, indent=2)
+    except TypeError:
+        print("Warning: Could not save analysis to JSON, using pickle instead")
+        with open(os.path.join(output_dir, 'analysis_results.pkl'), 'wb') as f:
+            pickle.dump(analysis, f)
     
-    print("Results saved to CSV file in the output directory.")
+    print("Results saved to files in the output directory.")
 
 def save_results_to_json(results, output_file):
     """

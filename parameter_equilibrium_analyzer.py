@@ -36,6 +36,57 @@ except Exception as e:
     sys.exit(1)
 
 # Define equilibrium criteria
+def calculate_equilibrium_certainty(fish_counts, window_size=30, warm_up_period=50):
+    """
+    Calculate a certainty score for equilibrium detection.
+    
+    Parameters:
+    -----------
+    fish_counts : list
+        List of fish counts over time
+    window_size : int
+        Size of sliding window to check for equilibrium
+    warm_up_period : int
+        Number of time steps to ignore at the beginning
+        
+    Returns:
+    --------
+    float
+        Certainty score between 0 and 1, where 1 is highest certainty
+    """
+    # Check if we have enough data
+    if len(fish_counts) < warm_up_period + window_size:
+        return 0.0
+    
+    # Skip warm-up period
+    post_warmup = fish_counts[warm_up_period:]
+    
+    # Use the last window for calculation
+    window = post_warmup[-window_size:]
+    
+    # Calculate coefficient of variation
+    cv = np.std(window) / np.mean(window) if np.mean(window) > 0 else float('inf')
+    
+    # Calculate trend by comparing first and second half of window
+    first_half = window[:len(window)//2]
+    second_half = window[len(window)//2:]
+    first_mean = np.mean(first_half)
+    second_mean = np.mean(second_half)
+    trend = abs(second_mean - first_mean) / first_mean if first_mean > 0 else float('inf')
+    
+    # Convert CV to a score (lower CV = higher score)
+    cv_max = 0.2  # Maximum CV that would still be considered for equilibrium
+    cv_score = 1 - min(cv, cv_max) / cv_max
+    
+    # Convert trend to a score (lower trend = higher score)
+    trend_max = 0.2  # Maximum trend that would still be considered for equilibrium
+    trend_score = 1 - min(trend, trend_max) / trend_max
+    
+    # Combine scores (geometric mean)
+    certainty = cv_score * trend_score
+    
+    return max(0.0, min(1.0, certainty))  # Ensure score is between 0 and 1
+
 def is_equilibrium(fish_counts, window_size=30, threshold=0.05, warm_up_period=50, extinction_threshold=10, growth_check=True):
     """
     Determine if fish count has reached equilibrium.

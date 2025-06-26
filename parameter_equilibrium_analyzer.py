@@ -710,6 +710,118 @@ def plot_sample_trajectories(results, num_samples=5, output_dir="simulation_outp
     
     print(f"Parameter relationship plots saved to {plot_dir}")
 
+def plot_parameter_relationships(results, output_dir='simulation_output/parameter_scan'):
+    """
+    Plot relationships between parameters and equilibrium certainty.
+    
+    Parameters:
+    -----------
+    results : list
+        List of simulation results
+    output_dir : str
+        Directory to save plots to
+    """
+    # Create output directory for plots
+    plot_dir = os.path.join(output_dir, 'plots', 'parameter_relationships')
+    os.makedirs(plot_dir, exist_ok=True)
+    
+    # Create a DataFrame from results for easier analysis
+    data = []
+    for result in results:
+        if 'params' in result and 'equilibrium_certainty' in result:
+            row = result['params'].copy()
+            row['equilibrium_reached'] = result.get('equilibrium_reached', False)
+            row['equilibrium_certainty'] = result.get('equilibrium_certainty', 0)
+            row['equilibrium_fish_count'] = result.get('equilibrium_fish_count', 0)
+            data.append(row)
+    
+    if not data:
+        print("No valid results to plot parameter relationships")
+        return
+    
+    results_df = pd.DataFrame(data)
+    
+    # Save the DataFrame to CSV for further analysis
+    csv_path = os.path.join(output_dir, 'parameter_results.csv')
+    results_df.to_csv(csv_path, index=False)
+    print(f"Parameter results saved to {csv_path}")
+    
+    # Get parameters with more than one value
+    params = [col for col in results_df.columns if col in ['rad_repulsion', 'reproduction_rate', 
+                                                         'imitation_radius', 'rad_orientation', 'noncoop']]
+    multi_value_params = [p for p in params if len(results_df[p].unique()) > 1]
+    
+    # If we have multiple parameters with multiple values, create pairwise plots
+    if len(multi_value_params) >= 2:
+        # Create pairwise plots for parameters with multiple values
+        for i, param1 in enumerate(multi_value_params):
+            for param2 in multi_value_params[i+1:]:
+                plt.figure(figsize=(10, 8))
+                
+                # Create scatter plot
+                scatter = plt.scatter(results_df[param1], results_df[param2], 
+                           c=results_df['equilibrium_certainty'], 
+                           cmap='viridis', 
+                           s=100, 
+                           alpha=0.7)
+                
+                # Add colorbar
+                cbar = plt.colorbar(scatter)
+                cbar.set_label('Equilibrium Certainty')
+                
+                # Set axis labels
+                plt.xlabel(param1)
+                plt.ylabel(param2)
+                
+                # Use log scale if parameter ranges span orders of magnitude
+                if max(results_df[param1]) / max(1e-10, min(results_df[param1])) > 10:
+                    plt.xscale('log')
+                if max(results_df[param2]) / max(1e-10, min(results_df[param2])) > 10:
+                    plt.yscale('log')
+                
+                # Add grid
+                plt.grid(alpha=0.3)
+                
+                # Add title
+                plt.title(f'Effect of {param1} and {param2} on Equilibrium Certainty')
+                
+                # Save the plot
+                plt.tight_layout()
+                plt.savefig(os.path.join(plot_dir, f"{param1}_vs_{param2}.png"), dpi=300)
+                plt.close()
+    
+    # Create individual parameter effect plots
+    for param in params:
+        if len(results_df[param].unique()) > 1:  # Only plot if parameter has multiple values
+            plt.figure(figsize=(10, 6))
+            
+            # Group by parameter and calculate mean equilibrium certainty
+            param_effect = results_df.groupby(param)['equilibrium_certainty'].agg(['mean', 'std', 'count']).reset_index()
+            
+            # Plot mean with error bars
+            plt.errorbar(param_effect[param], param_effect['mean'], 
+                       yerr=param_effect['std']/np.sqrt(param_effect['count']),
+                       marker='o', linestyle='-', linewidth=2, markersize=8)
+            
+            # Set axis labels
+            plt.xlabel(param)
+            plt.ylabel('Mean Equilibrium Certainty')
+            plt.title(f'Effect of {param} on Equilibrium Certainty')
+            
+            # Use log scale if parameter ranges span orders of magnitude
+            if max(results_df[param]) / max(1e-10, min(results_df[param])) > 10:
+                plt.xscale('log')
+            
+            # Add grid
+            plt.grid(alpha=0.3)
+            
+            # Save the plot
+            plt.tight_layout()
+            plt.savefig(os.path.join(plot_dir, f"{param}_effect.png"), dpi=300)
+            plt.close()
+    
+    print(f"Parameter relationship plots saved to {plot_dir}")
+
 def plot_sample_trajectories(results, output_dir='simulation_output/parameter_scan'):
     """
     Plot sample trajectories for equilibrium and non-equilibrium cases.

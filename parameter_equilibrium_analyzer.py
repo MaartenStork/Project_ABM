@@ -8,16 +8,19 @@ This script systematically tests different parameter combinations to find ranges
 where the fish population reaches equilibrium in the ABM simulation.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-import copy
-import pandas as pd
-from tqdm import tqdm
 import os
-import itertools
-import multiprocessing
-from functools import partial
+import sys
 import json
+import pickle
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+import seaborn as sns
+from tqdm import tqdm
+from itertools import product
+import multiprocessing as mp
+import functools
 import traceback
 import sys
 
@@ -447,6 +450,17 @@ def analyze_results(results, output_dir='simulation_output/parameter_scan'):
         'best_parameters': best_params.to_dict()
     }
 
+# Custom JSON encoder for NumPy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
 def save_results(results, analysis, output_dir):
     """
     Save parameter sweep results and analysis to files.
@@ -463,12 +477,13 @@ def save_results(results, analysis, output_dir):
     # Save the results to JSON
     save_results_to_json(results, os.path.join(output_dir, 'parameter_sweep_results.json'))
     
-    # Save analysis to JSON
+    # Save analysis to JSON with custom encoder for NumPy types
     try:
         with open(os.path.join(output_dir, 'analysis_results.json'), 'w') as f:
-            json.dump(analysis, f, indent=2)
-    except TypeError:
-        print("Warning: Could not save analysis to JSON, using pickle instead")
+            json.dump(analysis, f, indent=2, cls=NumpyEncoder)
+    except TypeError as e:
+        print(f"Warning: Could not save analysis to JSON: {e}")
+        print("Falling back to pickle format")
         with open(os.path.join(output_dir, 'analysis_results.pkl'), 'wb') as f:
             pickle.dump(analysis, f)
     
@@ -673,11 +688,11 @@ if __name__ == "__main__":
     # Define parameter ranges to test
     # Using smaller ranges for an initial test
     param_ranges = {
-    'rad_repulsion': np.logspace(np.log10(0.005), np.log10(0.2), 2),
-    'reproduction_rate': np.logspace(np.log10(0.01), np.log10(0.8), 2),
-    'imitation_radius': np.logspace(np.log10(0.05), np.log10(0.8), 2),
-    'rad_orientation': np.logspace(np.log10(0.01), np.log10(0.2), 2),
-    'noncoop': np.array([2, 4])
+    'rad_repulsion': np.logspace(np.log10(0.005), np.log10(0.2), 1),
+    'reproduction_rate': np.logspace(np.log10(0.01), np.log10(0.8), 3),
+    'imitation_radius': np.logspace(np.log10(0.05), np.log10(0.8), 1),
+    'rad_orientation': np.logspace(np.log10(0.01), np.log10(0.2), 1),
+    'noncoop': np.array([2])
     }
     
     print(f"Parameter ranges to test: {param_ranges}")

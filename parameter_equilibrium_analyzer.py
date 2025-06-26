@@ -294,7 +294,7 @@ def parameter_sweep(param_ranges, num_processes=4):
     # Generate all parameter combinations
     param_names = list(param_ranges.keys())
     param_values = list(param_ranges.values())
-    param_combinations = list(itertools.product(*param_values))
+    param_combinations = list(product(*param_values))
     
     # Convert tuples to dictionaries
     param_dicts = [dict(zip(param_names, combo)) for combo in param_combinations]
@@ -303,7 +303,7 @@ def parameter_sweep(param_ranges, num_processes=4):
     print(f"Running {len(param_dicts)} parameter combinations...")
     
     if num_processes > 1:
-        with multiprocessing.Pool(num_processes) as pool:
+        with mp.Pool(num_processes) as pool:
             results = list(tqdm(
                 pool.imap(run_simulation_with_params, param_dicts),
                 total=len(param_dicts)
@@ -620,28 +620,120 @@ def plot_sample_trajectories(results, num_samples=5, output_dir="simulation_outp
     plot_dir = os.path.join(output_dir, "trajectory_plots")
     os.makedirs(plot_dir, exist_ok=True)
     
-    # Filter results that have fish_counts
-    results_with_counts = [r for r in results if 'fish_counts' in r]
+    # Convert results to DataFrame for easier analysis
+    results_df = pd.DataFrame([
+        {
+            **r['params'],
+            'equilibrium_reached': r.get('equilibrium_reached', False),
+            'equilibrium_value': r.get('equilibrium_value', 0),
+            'time_to_equilibrium': r.get('time_to_equilibrium', 0),
+            'status': r.get('status', 'unknown'),
+            'certainty': calculate_equilibrium_certainty(r.get('fish_counts', []))
+        }
+        for r in results
+    ])
     
-    # Plot equilibrium and non-equilibrium trajectories
-    eq_results = [r for r in results_with_counts if r['equilibrium_reached']]
-    non_eq_results = [r for r in results_with_counts if not r['equilibrium_reached']]
+    # If we have no results, return
+    if len(results_df) == 0:
+        print("No results to plot parameter relationships")
+        return
     
-    # Sample from each category
-    eq_samples = np.random.choice(
-        range(len(eq_results)), 
-        min(num_samples, len(eq_results)), 
-        replace=False
-    ).tolist() if len(eq_results) > 0 else []
+    # Get parameter names
+    param_names = [k for k in results[0]['params'].keys()]
     
-    non_eq_samples = np.random.choice(
-        range(len(non_eq_results)), 
-        min(num_samples, len(non_eq_results)), 
-        replace=False
-    ).tolist() if len(non_eq_results) > 0 else []
+    # If we have at least two parameters that vary, create pairwise plots
+    varying_params = [p for p in param_names if len(results_df[p].unique()) > 1]
     
-    # Plot equilibrium trajectories
-    if eq_samples:
+    if len(varying_params) >= 2:
+        # Create pairwise plots for parameters with equilibrium certainty as color
+        for i, param1 in enumerate(varying_params):
+            for param2 in varying_params[i+1:]:
+                plt.figure(figsize=(10, 8))
+                
+                # Create scatter plot
+                scatter = plt.scatter(
+                    results_df[param1],
+                    results_df[param2],
+                    c=results_df['certainty'],
+                    cmap='viridis',
+                    s=100,
+                    alpha=0.7
+                )
+                
+                # Add colorbar
+                cbar = plt.colorbar(scatter)
+                cbar.set_label('Equilibrium Certainty')
+                
+                # Add labels and title
+                plt.xlabel(param1)
+                plt.ylabel(param2)
+                plt.title(f'Parameter Relationship: {param1} vs {param2}')
+                
+                # Use log scale if parameter values span orders of magnitude
+                if max(results_df[param1]) / max(1e-10, min(results_df[param1])) > 10:
+                    plt.xscale('log')
+                if max(results_df[param2]) / max(1e-10, min(results_df[param2])) > 10:
+                    plt.yscale('log')
+                
+                # Save the plot
+                plt.tight_layout()
+                plt.savefig(os.path.join(plot_dir, f"{param1}_vs_{param2}.png"), dpi=300)
+                plt.close()
+    
+    # Create individual parameter plots showing effect on equilibrium certainty
+    for param in param_names:
+        if len(results_df[param].unique()) > 1:
+            plt.figure(figsize=(10, 6))
+            
+            # Group by parameter and calculate mean certainty
+            param_effect = results_df.groupby(param)['certainty'].mean().reset_index()
+            
+            # Plot
+            plt.plot(param_effect[param], param_effect['certainty'], 'o-', linewidth=2, markersize=10)
+            
+            # Add labels and title
+            plt.xlabel(param)
+            plt.ylabel('Mean Equilibrium Certainty')
+            plt.title(f'Effect of {param} on Equilibrium Certainty')
+            
+            # Use log scale if parameter values span orders of magnitude
+            if max(results_df[param]) / max(1e-10, min(results_df[param])) > 10:
+                plt.xscale('log')
+            
+            # Add grid
+            plt.grid(alpha=0.3)
+            
+            # Save the plot
+            plt.tight_layout()
+            plt.savefig(os.path.join(plot_dir, f"{param}_effect.png"), dpi=300)
+            plt.close()
+    
+    print(f"Parameter relationship plots saved to {plot_dir}")
+
+def plot_sample_trajectories(results, output_dir='simulation_output/parameter_scan'):
+    """
+    Plot sample trajectories for equilibrium and non-equilibrium cases.
+    
+    Parameters:
+    -----------
+    results : list
+        List of simulation results
+    output_dir : str
+        Directory to save plots to
+    """
+    # Create output directory for plots
+    plot_dir = os.path.join(output_dir, 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+    
+    # Separate results into equilibrium and non-equilibrium
+    eq_results = [r for r in results if r.get('equilibrium_reached', False)]
+    non_eq_results = [r for r in results if not r.get('equilibrium_reached', False)]
+    
+    # Plot sample equilibrium trajectories
+    if eq_results:
+        # Sample up to 5 equilibrium trajectories
+        eq_samples = list(range(min(5, len(eq_results))))
+        
         plt.figure(figsize=(10, 6))
         for idx in eq_samples:
             result = eq_results[idx]
@@ -649,21 +741,20 @@ def plot_sample_trajectories(results, num_samples=5, output_dir="simulation_outp
             label = ", ".join(f"{k}={v:.3f}" for k, v in result['params'].items())
             plt.plot(time_steps, result['fish_counts'], label=label)
             
-            # Mark equilibrium point if available
-            if result['time_to_equilibrium']:
-                plt.axvline(x=result['time_to_equilibrium'], linestyle='--', alpha=0.5, color='gray')
-                
         plt.xlabel('Time Step')
         plt.ylabel('Fish Count')
-        plt.title('Fish Population Trajectories (Equilibrium Reached)')
+        plt.title('Fish Population Trajectories (Equilibrium)')
         plt.grid(alpha=0.3)
         # plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         plt.savefig(os.path.join(plot_dir, "equilibrium_trajectories.png"), dpi=300)
         plt.close()
     
-    # Plot non-equilibrium trajectories
-    if non_eq_samples:
+    # Plot sample non-equilibrium trajectories
+    if non_eq_results:
+        # Sample up to 5 non-equilibrium trajectories
+        non_eq_samples = list(range(min(5, len(non_eq_results))))
+        
         plt.figure(figsize=(10, 6))
         for idx in non_eq_samples:
             result = non_eq_results[idx]

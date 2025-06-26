@@ -751,8 +751,7 @@ def plot_parameter_relationships(results, output_dir='simulation_output/paramete
     print(f"Parameter results saved to {csv_path}")
     
     # Get parameters with more than one value
-    params = [col for col in results_df.columns if col in ['rad_repulsion', 'reproduction_rate', 
-                                                         'imitation_radius', 'rad_orientation', 'noncoop']]
+    params = [col for col in results_df.columns if col in ['reproduction_rate', 'imitation_radius', 'trust_increase']]
     multi_value_params = [p for p in params if len(results_df[p].unique()) > 1]
     
     # If we have multiple parameters with multiple values, create pairwise plots
@@ -895,11 +894,9 @@ if __name__ == "__main__":
     # Define parameter ranges to test
     # Using smaller ranges for an initial test
     param_ranges = {
-    'rad_repulsion': np.logspace(np.log10(0.005), np.log10(0.2), 1),
-    'reproduction_rate': np.logspace(np.log10(0.01), np.log10(0.8), 3),
-    'imitation_radius': np.logspace(np.log10(0.05), np.log10(0.8), 1),
-    'rad_orientation': np.logspace(np.log10(0.01), np.log10(0.2), 1),
-    'noncoop': np.array([2])
+    'reproduction_rate': np.linspace(0.1, 0.5, 15),
+    'imitation_radius': np.logspace(np.log10(0.05), np.log10(0.5), 15), # 0.3 (default)
+    'trust_increase': np.logspace(np.log10(0.01), np.log10(0.5), 15) # 0.1 (default)
     }
     
     print(f"Parameter ranges to test: {param_ranges}")
@@ -911,10 +908,9 @@ if __name__ == "__main__":
     # Run a minimal test first with just one parameter combination
     print("\nRunning test with a single parameter combination...")
     test_params = {
-        'rad_repulsion': param_ranges['rad_repulsion'][0],
-        'rad_orientation': param_ranges['rad_orientation'][0],
+        'reproduction_rate': param_ranges['reproduction_rate'][0],
         'imitation_radius': param_ranges['imitation_radius'][0],
-        'noncoop': param_ranges['noncoop'][0]
+        'trust_increase': param_ranges['trust_increase'][0]
     }
     print(f"Test parameters: {test_params}")
     

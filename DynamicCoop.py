@@ -27,6 +27,7 @@ from create_gif import create_gif
 import os
 import glob
 from tqdm import tqdm
+from snapshot_visualization import save_snapshot
 
 
 from parameters import *
@@ -241,10 +242,10 @@ def observe():
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(f'year = {int(time1)}')
-    ax.legend(numpoints=1, loc='center', bbox_to_anchor=(0.5, -0.072), ncol=3, prop={'size': 11},
+    ax.legend(numpoints=1, loc='center', bbox_to_anchor=(0.5, -0.15), ncol=3, prop={'size': 11},
               facecolor='lightskyblue')
 
-    fig.savefig(f'simulation_output/year_{int(time1):04d}.png', bbox_inches='tight', pad_inches=0, dpi=200)
+    fig.savefig(f'simulation_output/year_{int(time1):04d}.png', bbox_inches='tight', pad_inches=0.1, dpi=200)
     plt.close(fig)
 
 def plot_summary():
@@ -523,7 +524,6 @@ def classify_trait_from_effort(effort):
         return 'coop'
     else:
         return 'fully_coop'
-
 
 def imitate_successful_strategies():
     """Allow fishers to imitate more successful strategies from their neighbors."""
@@ -851,6 +851,10 @@ if len(total_fish_count) == n:
 plot_summary()
 save_cooperation_data()  # Save cooperation data
 save_trust_data()  # Save trust data
+
+# Create a snapshot with the new visualization
+print("\nCreating snapshot visualization...")
+save_snapshot(agents, time1, 'final_state.png', half_length_area=half_length_area)
 
 plt.ioff()  # Disable interactive mode
 plt.show()  # Keep the final plot window open

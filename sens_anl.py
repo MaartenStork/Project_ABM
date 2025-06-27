@@ -47,13 +47,12 @@ from SALib.sample import morris as morris_sample
 from SALib.analyze import morris as morris_analyze
 
 
-def run_model(n_timesteps=1000):
+def run_model(n_timesteps=500):
     """
     Re-initialize and run the DynamicCoop model for n_timesteps,
     return final total fish count.
     
-    Using 300 timesteps instead of default 150 to capture more mature
-    system behavior while maintaining computational efficiency.
+    Using 500 timesteps to capture mature system behavior and reduce variance.
     System has inherent stochasticity, so multiple reps handle variability.
     """
     dc.initialize('reproduction_rate')
@@ -611,27 +610,33 @@ def main(quick_test=False, sobol_type='all'):
         
         # Calculate estimated runs based on sobol_type
         if sobol_type == 'first':
-            sobol_runs = 1000 * (len(param_names) + 2)
+            sobol_runs = 800 * (len(param_names) + 2)
         elif sobol_type == 'second':
-            sobol_runs = 1000 * (2*len(param_names) + 2)
+            sobol_runs = 800 * (2*len(param_names) + 2)
         elif sobol_type == 'total':
-            sobol_runs = 1000 * (len(param_names) + 2)
+            sobol_runs = 800 * (len(param_names) + 2)
         elif sobol_type == 'first_total':
-            sobol_runs = 1000 * (len(param_names) + 2)
+            sobol_runs = 800 * (len(param_names) + 2)
         else:  # 'all'
-            sobol_runs = 1000 * (2*len(param_names) + 2)
+            sobol_runs = 800 * (2*len(param_names) + 2)
             
         total_runs_estimated = (
-            len(param_names) * 25 * 50 +  # OFAT (if enabled)
+            len(param_names) * 25 * 100 +  # OFAT (if enabled)
             sobol_runs +  # Sobol with specified type
             200 * (len(param_names) + 1)  # Morris (if enabled)
         )
         print(f"Total estimated model runs: {total_runs_estimated:,}")
 
+        # OFAT Analysis  
+        print("\n=== Running OFAT Analysis ===")
+        print(f"Estimated runs: {len(param_names) * 25 * 100:,}")
+        ofat_results = ofat_analysis(param_names, original_values, n_points=25, n_reps=100)
+        plot_ofat(ofat_results, filename='ofat_full.png')
+
         # Sobol Analysis with specified type
         print(f"\n=== Running Sobol Analysis ({sobol_type}) ===")
         print(f"Estimated runs: {sobol_runs:,}")
-        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type=sobol_type)
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=800, sobol_type=sobol_type)
         plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}.png', sobol_type=sobol_type)
     
     # Ensure all parameters are restored to original values
@@ -646,6 +651,8 @@ if __name__=='__main__':
     # Parse command line arguments
     quick_mode = False
     sobol_type = 'all'
+    ofat_only = False
+    n_reps = 100  # Default repetitions for tighter CI
     
     if len(sys.argv) > 1:
         for arg in sys.argv[1:]:
@@ -653,15 +660,39 @@ if __name__=='__main__':
                 quick_mode = True
             elif arg in ['all', 'first', 'second', 'total', 'first_total']:
                 sobol_type = arg
+            elif arg == 'ofat':
+                ofat_only = True
+            elif arg.startswith('reps='):
+                try:
+                    n_reps = int(arg.split('=')[1])
+                    print(f"Setting repetitions to {n_reps}")
+                except ValueError:
+                    print(f"Invalid repetition value: {arg}")
+                    n_reps = 100
     
     print(f"Running sensitivity analysis with:")
     print(f"  Quick mode: {quick_mode}")
     print(f"  Sobol type: {sobol_type}")
-    print(f"\nUsage: python sens_anl.py [quick] [all|first|second|total|first_total]")
+    print(f"  OFAT only: {ofat_only}")
+    print(f"  Repetitions: {n_reps}")
+    print(f"\nUsage: python sens_anl.py [quick] [all|first|second|total|first_total] [ofat] [reps=N]")
     print(f"Examples:")
     print(f"  python sens_anl.py quick first       # Quick test, first-order only")
     print(f"  python sens_anl.py total            # Full analysis, total-order only")
+    print(f"  python sens_anl.py ofat reps=150    # OFAT analysis with 150 repetitions")
+    print(f"  python sens_anl.py ofat reps=200    # OFAT analysis with 200 repetitions (tighter CI)")
     print(f"  python sens_anl.py quick first_total # Quick test, first + total order")
     print(f"  python sens_anl.py                  # Full analysis, all indices")
     
-    main(quick_test=quick_mode, sobol_type=sobol_type)
+    if ofat_only:
+        # Run only OFAT analysis
+        param_names, bounds, original_values = get_param_names_and_bounds()
+        print(f"Parameters included ({len(param_names)}): {param_names}")
+        print("\n=== Running OFAT Analysis Only ===")
+        print(f"Estimated runs: {len(param_names) * 25 * n_reps:,}")
+        ofat_results = ofat_analysis(param_names, original_values, n_points=25, n_reps=n_reps)
+        plot_ofat(ofat_results, filename='ofat_full.png')
+        restore_parameters(param_names, original_values)
+        print("OFAT analysis completed!")
+    else:
+        main(quick_test=quick_mode, sobol_type=sobol_type)

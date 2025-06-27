@@ -1,0 +1,7 @@
+[
+  {
+    "params": {
+      "rad_repulsion": 0.01,
+      "rad_orientation": 0.02,
+      "imitation_radius": 0.1,
+      "noncoop": 

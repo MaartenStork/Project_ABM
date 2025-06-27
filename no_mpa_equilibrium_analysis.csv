@@ -1,0 +1,3 @@
+Model,Stationary,ADF p-value,Low CV,CV Value,No Trend,Trend p-value,Statistical Equilibrium
+Original Model,✅,0.000000,✅,0.013076,❌,0.001097,❌
+Dynamic Model,✅,0.000000,✅,0.042811,✅,0.190274,✅

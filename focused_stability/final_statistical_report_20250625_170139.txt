@@ -1,0 +1,47 @@
+COMPREHENSIVE STATISTICAL STABILITY ANALYSIS - FINAL REPORT
+======================================================================
+
+Analysis completed: 2025-06-25 18:02:07
+Total simulations: 2250
+Statistical significance level: p < 0.01
+
+EXECUTIVE SUMMARY:
+--------------------
+Parameters with statistically significant boundaries: 0/5
+Significant parameters: 
+
+DETAILED FINDINGS:
+--------------------
+
+SCALE:
+  ✗ NO CLEAR BOUNDARY DETECTED
+  Parameter may not have strong effect on stability
+
+IMITATION PERIOD:
+  ✗ NO CLEAR BOUNDARY DETECTED
+  Parameter may not have strong effect on stability
+
+COOPERATION INCREASE:
+  ✗ NO CLEAR BOUNDARY DETECTED
+  Parameter may not have strong effect on stability
+
+Q:
+  ✗ NO CLEAR BOUNDARY DETECTED
+  Parameter may not have strong effect on stability
+
+TRUST DECREASE:
+  ✗ NO CLEAR BOUNDARY DETECTED
+  Parameter may not have strong effect on stability
+
+FINAL RECOMMENDATIONS:
+-------------------------
+
+Based on statistically rigorous analysis:
+
+scale = 5.903  # Best observed (no clear boundary)
+imitation_period = 26.000  # Best observed (no clear boundary)
+cooperation_increase = 0.777  # Best observed (no clear boundary)
+q = 1.039  # Best observed (no clear boundary)
+trust_decrease = 0.716  # Best observed (no clear boundary)
+
+These recommendations are based on 2250 simulations with 15 repetitions per parameter value.

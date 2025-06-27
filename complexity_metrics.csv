@@ -1,0 +1,4 @@
+Metric,Original Model,Dynamic Model
+ADF p-value,1.84e-02 ± 3.82e-02,1.87e-01 ± 2.17e-01
+CV Value,0.014240 ± 0.000113,0.029045 ± 0.000293
+Trend p-value,7.03e-06 ± 4.20e-06,4.05e-01 ± 1.57e-01

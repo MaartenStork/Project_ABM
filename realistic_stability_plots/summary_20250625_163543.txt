@@ -1,0 +1,33 @@
+REALISTIC STABILITY ANALYSIS SUMMARY
+========================================
+
+scale:
+  Promising range: 0.500 - 4.000
+  Best value: 0.500
+  Best stability: 1.00
+  Best quality: 1.00
+
+imitation_period:
+  Promising range: 1.000 - 15.000
+  Best value: 3.000
+  Best stability: 1.00
+  Best quality: 1.00
+
+cooperation_increase:
+  Promising range: 0.050 - 0.500
+  Best value: 0.418
+  Best stability: 1.00
+  Best quality: 1.00
+
+q:
+  Promising range: 0.200 - 1.000
+  Best value: 0.273
+  Best stability: 1.00
+  Best quality: 1.00
+
+trust_decrease:
+  Promising range: 0.050 - 0.500
+  Best value: 0.050
+  Best stability: 1.00
+  Best quality: 1.00
+

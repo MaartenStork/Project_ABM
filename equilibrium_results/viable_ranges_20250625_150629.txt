@@ -1,0 +1,18 @@
+VIABLE PARAMETER RANGES (Equilibrium Probability > 0.6)
+============================================================
+
+scale:
+  No viable range found (no points with equilibrium prob > 0.6)
+
+imitation_period:
+  No viable range found (no points with equilibrium prob > 0.6)
+
+cooperation_increase:
+  No viable range found (no points with equilibrium prob > 0.6)
+
+q:
+  No viable range found (no points with equilibrium prob > 0.6)
+
+trust_decrease:
+  No viable range found (no points with equilibrium prob > 0.6)
+

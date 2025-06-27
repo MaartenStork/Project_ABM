@@ -1,0 +1,38 @@
+BALANCED STABILITY ANALYSIS SUMMARY
+========================================
+
+scale:
+  Tier: good
+  Range: 0.500 - 4.000
+  Best value: 3.750
+  Best quality: 0.69
+  Best stability: 0.00
+
+imitation_period:
+  Tier: good
+  Range: 1.000 - 15.000
+  Best value: 15.000
+  Best quality: 0.67
+  Best stability: 0.20
+
+cooperation_increase:
+  Tier: good
+  Range: 0.050 - 0.500
+  Best value: 0.436
+  Best quality: 0.67
+  Best stability: 0.00
+
+q:
+  Tier: good
+  Range: 0.200 - 1.000
+  Best value: 0.543
+  Best quality: 0.68
+  Best stability: 0.20
+
+trust_decrease:
+  Tier: good
+  Range: 0.050 - 0.500
+  Best value: 0.243
+  Best quality: 0.68
+  Best stability: 0.20
+

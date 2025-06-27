@@ -1,0 +1,5 @@
+Model,Scenario,Stationary,ADF p-value,Final CV,CV < 5%,No Trend,Trend p-value,Equilibrium,Score,Significance
+Original Model,High Cooperation (No MPA),✅,0.0000,0.0166,✅,❌,0.0004,❌,0.700,MEDIUM
+Original Model,Low Cooperation (MPA Protected),✅,0.0008,0.0200,✅,✅,0.8973,✅,0.800,HIGH
+Dynamic Model,High Cooperation (No MPA),✅,0.0005,0.0564,❌,✅,0.8483,❌,0.500,MEDIUM
+Dynamic Model,Low Cooperation (MPA Protected),✅,0.0000,0.0407,✅,✅,0.0818,✅,0.800,HIGH

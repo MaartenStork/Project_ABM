@@ -1,0 +1,29 @@
+STABLE PARAMETER REGIONS ANALYSIS
+Threshold: 0.4
+Timestamp: 20250625_161444
+
+OFAT RESULTS:
+
+scale:
+  No stable range found
+
+imitation_period:
+  No stable range found
+
+cooperation_increase:
+  No stable range found
+
+q:
+  No stable range found
+
+trust_decrease:
+  No stable range found
+
+MULTI-FACTOR RESULTS:
+Stable samples: 6 / 150
+Best parameter combination:
+  scale: 3.812
+  imitation_period: 8.000
+  cooperation_increase: 0.175
+  q: 0.260
+  trust_decrease: 0.106

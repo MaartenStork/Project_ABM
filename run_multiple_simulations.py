@@ -7,37 +7,53 @@ import DynamicCoop as dc
 # Configuration parameters
 SIMULATION_CONFIG = {
     # Simulation runs
-    'num_runs': 100,  # Keep high number of runs for statistical confidence
+    'num_runs': 5000,  # Increased from 100 to 5000 for much better statistical confidence
     'experiment': 'default',
     
-    # Trust Parameters
-    'initial_trust': 1.0,        # Maximum possible initial trust
-    'trust_increase': 0.5,       # Extremely fast trust building
-    'trust_decrease': 0.01,      # Extremely slow trust decay
-    'trust_radius': 0.8,         # Very large trust radius for better observation
-    'trust_memory': 25,          # Much longer trust memory
-    'trust_threshold': 0.3,      # Very low threshold to maintain cooperation
+    # Trust Parameters (matching parameters.py)
+    'initial_trust': 0.5,        # From parameters.py
+    'trust_increase': 0.1,       # From parameters.py
+    'trust_decrease': 0.2,       # From parameters.py
+    'trust_radius': 0.3,         # From parameters.py
+    'trust_memory': 5,           # From parameters.py
+    'trust_threshold': 0.6,      # From parameters.py
     
-    # Fisher Numbers - Overwhelming majority of cooperators
-    'fully_noncoop': 1,          # Minimal non-cooperators
-    'noncoop': 1,
-    'cond_coop': 8,             # More conditional cooperators as buffer
-    'coop': 15,                 # Large cooperative population
-    'fully_coop': 25,           # Dominant fully cooperative population
+    # Fisher Numbers (matching parameters.py)
+    'fully_noncoop': 4,          # From parameters.py
+    'noncoop': 4,                # From parameters.py
+    'cond_coop': 4,              # From parameters.py
+    'coop': 4,                   # From parameters.py
+    'fully_coop': 4,             # From parameters.py
     
-    # MPA Settings
-    'mpa_present': 'no',       # Enable MPAs
-    'part_time': 'no',          # Full-time MPAs
-    'mpa_time': 50,             # Duration if part-time (not used when part_time='no')
-    'mpa_type': 'spaced',       # Use spaced MPAs for better coverage
-    'mpa_distance': 0.2,        # Optimal distance between MPAs
-    'mpa_fraction': 0.5,        # Maximum protected area (50%)
+    # MPA Settings (matching parameters.py)
+    'mpa_present': 'no',         # From parameters.py (MPA)
+    'part_time': 'no',           # From parameters.py (Both)
+    'mpa_time': 50,              # From parameters.py (Time_MPA)
+    'mpa_type': 'single',        # From parameters.py (Type_MPA)
+    'mpa_distance': 0.2,         # From parameters.py (Dist_MPA)
+    'mpa_fraction': 0.25,        # From parameters.py (Frac_MPA)
     
-    # Other Parameters
-    'carrying_capacity': 500,    # Much higher carrying capacity
-    'time_steps': 300,          # Keep shorter simulation to see early dynamics
-    'base_growth': 0.8,         # Maximum growth rate
-    'initial_fish': 500         # Start with full carrying capacity
+    # Other Parameters (matching parameters.py)
+    'carrying_capacity': 500,    # From parameters.py (K)
+    'time_steps': 500,           # Increased from 150 to 500 for longer-term dynamics
+    'base_growth': 0.8,          # Keep this as is (not in parameters.py)
+    'initial_fish': 500,         # Start with carrying capacity
+    
+    # Additional parameters from parameters.py
+    'scale': 2,                  # From parameters.py
+    'num_fishers': 20,           # From parameters.py
+    'move_fishers': 0.3,         # From parameters.py
+    'q': 0.6,                    # From parameters.py
+    'r': 0.2,                    # From parameters.py
+    'fish_density_threshold': 3.0,  # From parameters.py
+    'threshold_radius': 0.4,     # From parameters.py
+    'threshold_memory': 5,       # From parameters.py
+    'cooperation_increase': 0.2, # From parameters.py
+    'imitation_period': 5,       # From parameters.py
+    'imitation_radius': 0.3,     # From parameters.py
+    'imitation_prob': 0.3,       # From parameters.py
+    'imitation_nudge_factor': 0.25,  # From parameters.py
+    'plot_update_freq': 25       # From parameters.py
 }
 
 def run_multiple_simulations(num_runs=10, experiment='default'):
@@ -187,8 +203,6 @@ def plot_statistics(all_runs_data):
     # Plot 1: Fish Population
     plt.subplot(4, 1, 1)
     plot_with_ci(time_steps, fish_pop_data, label='Total fish population', color='blue')
-    plot_with_ci(time_steps, fish_mpa_data, label='Fish in MPA', color='green')
-    plot_with_ci(time_steps, fish_outside_data, label='Fish outside MPA', color='red')
     plt.xlabel('Time Step')
     plt.ylabel('Number of Fish')
     plt.title('Fish Population Dynamics')

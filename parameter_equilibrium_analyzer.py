@@ -203,6 +203,9 @@ def run_simulation_with_params(params):
         elif param_name == 'reproduction_rate':
             # For reproduction_rate, we need to handle differently since it's part of fish agents
             original_params[param_name] = params[param_name]  # Just store for reference
+        elif param_name == 'trust_increase':
+            original_params[param_name] = globals()[param_name]
+            globals()[param_name] = params[param_name]
         else:
             original_params[param_name] = globals()[param_name]
             globals()[param_name] = params[param_name]
@@ -279,9 +282,10 @@ def run_simulation_with_params(params):
         'status': eq_status
     }
 
-def parameter_sweep(param_ranges, num_processes=4):
+def parameter_sweep(param_ranges, num_processes=4, save_every=50):
     """
     Perform a parameter sweep to find ranges where equilibrium is reached.
+    Saves progress incrementally to avoid data loss during long runs.
     
     Parameters:
     -----------
@@ -289,6 +293,8 @@ def parameter_sweep(param_ranges, num_processes=4):
         Dictionary of parameter names and the values to test
     num_processes : int
         Number of parallel processes to use
+    save_every : int
+        Save progress every N simulations
         
     Returns:
     --------
@@ -303,15 +309,48 @@ def parameter_sweep(param_ranges, num_processes=4):
     # Convert tuples to dictionaries
     param_dicts = [dict(zip(param_names, combo)) for combo in param_combinations]
     
-    # Run simulations in parallel
-    print(f"Running {len(param_dicts)} parameter combinations...")
+    # Check for existing progress file
+    progress_file = "simulation_output/parameter_scan/progress.json"
+    completed_results = []
+    start_idx = 0
+    
+    if os.path.exists(progress_file):
+        print("Found existing progress file, loading...")
+        with open(progress_file, 'r') as f:
+            completed_results = json.load(f)
+        start_idx = len(completed_results)
+        print(f"Resuming from simulation {start_idx}/{len(param_dicts)}")
+    
+    # Run remaining simulations
+    print(f"Running {len(param_dicts) - start_idx} remaining parameter combinations...")
     
     if num_processes > 1:
-        with mp.Pool(num_processes) as pool:
-            results = list(tqdm(
-                pool.imap(run_simulation_with_params, param_dicts),
-                total=len(param_dicts)
-            ))
+        # Process in batches to enable saving
+        batch_size = num_processes * 5  # Process 5 batches at a time per process
+        remaining_params = param_dicts[start_idx:]
+        
+        for batch_start in range(0, len(remaining_params), batch_size):
+            batch_end = min(batch_start + batch_size, len(remaining_params))
+            batch = remaining_params[batch_start:batch_end]
+            
+            print(f"Processing batch {batch_start//batch_size + 1}/{(len(remaining_params)-1)//batch_size + 1}")
+            
+            with multiprocessing.Pool(num_processes) as pool:
+                batch_results = list(tqdm(
+                    pool.imap(run_simulation_with_params, batch),
+                    total=len(batch),
+                    desc=f"Batch {batch_start//batch_size + 1}"
+                ))
+            
+            # Add batch results
+            completed_results.extend(batch_results)
+            
+            # Save progress
+            os.makedirs(os.path.dirname(progress_file), exist_ok=True)
+            with open(progress_file, 'w') as f:
+                json.dump([serialize_result(r) for r in completed_results], f, indent=2)
+            
+            print(f"Progress saved: {len(completed_results)}/{len(param_dicts)} completed")
     else:
         results = []
         for params in tqdm(param_dicts):
@@ -319,9 +358,9 @@ def parameter_sweep(param_ranges, num_processes=4):
     
     return results
 
-def analyze_results(results, output_dir='simulation_output/parameter_scan'):
+def analyze_results(results):
     """
-    Analyze the results of the parameter sweep and generate visualizations.
+    Analyze parameter sweep results and visualize equilibrium regions.
     
     Parameters:
     -----------
@@ -886,20 +925,30 @@ def plot_sample_trajectories(results, output_dir='simulation_output/parameter_sc
         plt.savefig(os.path.join(plot_dir, "non_equilibrium_trajectories.png"), dpi=300)
         plt.close()
 
-# Global variables for equilibrium detection
-global_window_size = 20
-global_warm_up_period = 30
+# Global variables for equilibrium detection - OPTIMIZED for 350 time steps
+global_window_size = 40  # Larger window for more stable detection
+global_warm_up_period = 100  # Longer warm-up period for 350 time steps
 
 if __name__ == "__main__":
-    # Define parameter ranges to test
-    # Using smaller ranges for an initial test
+    # Define parameter ranges to test - OPTIMIZED LONG SIMULATION SWEEP
+    # With 10x10x10 = 1000 combinations + 350 time steps = 12-14 hours runtime
     param_ranges = {
-    'reproduction_rate': np.linspace(0.1, 0.5, 15),
-    'imitation_radius': np.logspace(np.log10(0.05), np.log10(0.5), 15), # 0.3 (default)
-    'trust_increase': np.logspace(np.log10(0.01), np.log10(0.5), 15) # 0.1 (default)
+        'reproduction_rate': np.linspace(0.05, 0.8, 10),    # Realistic range: 0.05 to 0.8 (includes defaults 0.2-0.9)
+        'trust_increase': np.linspace(0.0001, 0.3, 10),     # Wide range: 0.0001 to 0.3  
+        'imitation_radius': np.linspace(0.01, 1.5, 10),     # Wide range: 0.01 to 1.5
     }
     
     print(f"Parameter ranges to test: {param_ranges}")
+    
+    # Calculate total combinations and estimate runtime
+    total_combinations = 1
+    for param_name, values in param_ranges.items():
+        total_combinations *= len(values)
+        print(f"  {param_name}: {len(values)} values from {min(values):.4f} to {max(values):.4f}")
+    
+    print(f"\nTotal parameter combinations: {total_combinations}")
+    estimated_hours = total_combinations * 0.7 / 60  # ~42 seconds per sim (350 steps)
+    print(f"Estimated runtime: {estimated_hours:.1f} hours ({estimated_hours*60:.0f} minutes)")
     
     # Create a directory for storing parameter scan results
     output_dir = "simulation_output/parameter_scan"
@@ -909,8 +958,8 @@ if __name__ == "__main__":
     print("\nRunning test with a single parameter combination...")
     test_params = {
         'reproduction_rate': param_ranges['reproduction_rate'][0],
-        'imitation_radius': param_ranges['imitation_radius'][0],
-        'trust_increase': param_ranges['trust_increase'][0]
+        'trust_increase': param_ranges['trust_increase'][0],
+        'imitation_radius': param_ranges['imitation_radius'][0]
     }
     print(f"Test parameters: {test_params}")
     
@@ -921,7 +970,7 @@ if __name__ == "__main__":
     if 'error' not in test_result:
         # Run parameter sweep
         print("\nStarting parameter sweep...")
-        results = parameter_sweep(param_ranges, num_processes=1)  # Use 1 process to avoid conflicts
+        results = parameter_sweep(param_ranges, num_processes=4)  # Use 4 processes for speed
         
         # Analyze results
         print("\nAnalyzing results...")

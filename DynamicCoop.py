@@ -41,16 +41,21 @@ class agent:  # create an empty class
 #----------------------------------------------------------------------------------------------------------    
 
 def delete_prev_sim():
+    """
+    Clean up previous simulation visualization files.
+    Handles parallel execution gracefully by silently ignoring file deletion errors.
+    """
     script_dir = os.path.dirname(os.path.abspath(__file__))
     sim_output_dir = os.path.join(script_dir, "simulation_output")
     pattern = os.path.join(sim_output_dir, "year_*.png")
 
-    # Iterate and remove matching files
+    # Iterate and remove matching files (silently handle parallel deletion conflicts)
     for file_path in glob.glob(pattern):
         try:
             os.remove(file_path)
-        except Exception as e:
-            print(f"Error deleting {file_path}: {e}")
+        except (FileNotFoundError, PermissionError, OSError):
+            # Silently ignore deletion errors (file already deleted by another process)
+            pass
 
 
 def initialize(experiment):
@@ -828,6 +833,8 @@ def update_live_plot(axes, lines, step):
 
 ######################################################################################################################################################       
 
+# Only run simulation if this script is executed directly (not imported)
+if __name__ == "__main__":
 experiment_label = 'both'
 initialize(experiment_label)
 observe()

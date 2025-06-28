@@ -494,10 +494,16 @@ if __name__ == "__main__":
     # Define parameter ranges to test
     # Using smaller ranges for an initial test
     param_ranges = {
+<<<<<<< Updated upstream
         'rad_repulsion': np.linspace(0.01, 0.1, 3),  # Range for repulsion radius
         'rad_orientation': np.linspace(0.02, 0.15, 3),  # Range for orientation radius
         'imitation_radius': np.linspace(0.1, 0.5, 3),  # Range for imitation radius
         'noncoop': np.array([2, 4, 8]),  # Different values for non-cooperative agents
+=======
+        'reproduction_rate': np.linspace(0.05, 0.25, 12),     # 12 values: 0.05 to 0.25
+        'trust_increase': np.linspace(0.0001, 0.3, 12),       # 12 values: 0.0001 to 0.3
+        'imitation_radius': np.linspace(0.01, 1.5, 12),       # 12 values: 0.01 to 1.5
+>>>>>>> Stashed changes
     }
     
     print(f"Parameter ranges to test: {param_ranges}")

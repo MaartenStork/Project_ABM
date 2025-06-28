@@ -14,7 +14,7 @@ trust_threshold = 0.6  # Trust threshold for cooperative behavior
 
 # Fishing ground and time #
 K = 500 # carrying capacity of fishing ground
-n = 150 # number of simulation time steps
+n = 350 # number of simulation time steps - EXTENDED for better equilibrium detection
 
 # Threshold-based behavior parameters
 fish_density_threshold = 3.0  # threshold for local fish density that triggers cooperation

@@ -91,6 +91,7 @@ def get_param_names_and_bounds():
         # Exclude plotting parameter
         'plot_update_freq',
         
+<<<<<<< Updated upstream
         # # Exclude all parameters except our five key ones
         # 'reproduction_rate', 'trust_memory', 'imitation_prob', 'threshold_radius',
         # 'fully_coop', 'trust_radius', 'trust_increase', 'move_fishers', 'K',
@@ -98,6 +99,15 @@ def get_param_names_and_bounds():
         # 'cond_coop', 'imitation_nudge_factor', 'fish_density_threshold',
         # 'noncoop', 'initial_trust', 'coop', 'num_fishers', 'fully_noncoop',
         # 'rad_repulsion', 'trust_threshold', 'threshold_memory'
+=======
+        # Exclude all parameters except our five key ones
+        'reproduction_rate', 'trust_memory', 'imitation_prob', 'threshold_radius',
+        'fully_coop', 'trust_radius', 'trust_increase', 'move_fishers', 'K',
+        'rad_orientation', 'imitation_radius', 'rad_attraction', 'r',
+        'cond_coop', 'imitation_nudge_factor', 'fish_density_threshold',
+        'noncoop', 'initial_trust', 'coop', 'num_fishers', 'fully_noncoop',
+        'rad_repulsion', 'trust_threshold', 'threshold_memory'
+>>>>>>> Stashed changes
     }
     names = [p for p in names if p not in exclude]
     names.sort()
@@ -224,6 +234,7 @@ def plot_ofat(ofat_results, filename='ofat_full.png'):
     plt.show()
 
 
+<<<<<<< Updated upstream
 def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type='all'):
     """
     Sobol sensitivity analysis with options to run specific Sobol index types
@@ -254,6 +265,10 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol
     if sobol_type not in valid_types:
         raise ValueError(f"sobol_type must be one of {valid_types}")
     
+=======
+def sobol_analysis(param_names, bounds, original_values, sample_size=5000):
+    """Sobol sensitivity analysis with statistically significant sample size"""
+>>>>>>> Stashed changes
     problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
     
     # Determine calculation requirements
@@ -621,7 +636,12 @@ def main(quick_test=False, sobol_type='all'):
             sobol_runs = 800 * (2*len(param_names) + 2)
             
         total_runs_estimated = (
+<<<<<<< Updated upstream
             len(param_names) * 25 * 100 +  # OFAT (if enabled)
+=======
+<<<<<<< Updated upstream
+            len(param_names) * 25 * 50 +  # OFAT (if enabled)
+>>>>>>> Stashed changes
             sobol_runs +  # Sobol with specified type
             200 * (len(param_names) + 1)  # Morris (if enabled)
         )
@@ -638,6 +658,31 @@ def main(quick_test=False, sobol_type='all'):
         print(f"Estimated runs: {sobol_runs:,}")
         Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=800, sobol_type=sobol_type)
         plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}.png', sobol_type=sobol_type)
+=======
+            len(param_names) * 25 * 50 +  # OFAT
+            5000 * (len(param_names) + 2) +  # Sobol with 5000 samples
+            200 * (len(param_names) + 1)  # Morris
+        )
+        print(f"Total estimated model runs: {total_runs_estimated:,}")
+        
+        # # Morris Analysis (least computationally expensive - start here)
+        # print(f"\n=== Running Morris Analysis ===")
+        # print(f"Estimated runs: {200 * (len(param_names) + 1):,}")
+        # Si_m = morris_analysis(param_names, bounds, original_values, num_trajectories=200, grid_levels=10)
+        # plot_morris(Si_m, param_names)
+
+        # Sobol Analysis with 5000 samples
+        print(f"\n=== Running Sobol Analysis ===")
+        print(f"Estimated runs: {5000 * (len(param_names) + 2):,}")
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=5000)
+        plot_sobol(Si_sob, param_names)
+        
+        # OFAT Analysis
+        print(f"\n=== Running OFAT Analysis ===")
+        print(f"Estimated runs: {len(param_names) * 25 * 50:,}")
+        ofat_res = ofat_analysis(param_names, original_values, n_points=25, n_reps=50)
+        plot_ofat(ofat_res)
+>>>>>>> Stashed changes
     
     # Ensure all parameters are restored to original values
     restore_parameters(param_names, original_values)

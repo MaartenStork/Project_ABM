@@ -249,7 +249,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## Contact
 
-**Project Maintainer**: [Your Name]
+**Project Maintainer**: Maarten Stork
 
 - Email: maartenastork@gmail.com
 - GitHub: [@MaartenStork](https://github.com/yourusername)

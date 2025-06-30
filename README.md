@@ -8,17 +8,7 @@
 
 ## Overview
 
-This repository contains a sophisticated Agent-Based Model (ABM) that simulates the complex dynamics of artisanal fisheries. The model investigates how **fishing behavior** (cooperation traits) affect fish populations and fishery yields.
-
-### Key Features
-
-- **Dual Agent System**: Fishing agents (pirogues) with varying cooperation levels and schooling fish with realistic movement patterns
-- **MPA Configuration**: Flexible Marine Protected Area designs (single/multiple, permanent/temporary)
-- **Trust Dynamics**: Sophisticated cooperation and trust mechanisms between fishers
-- **Comprehensive Analysis**: Built-in sensitivity analysis (OFAT, Sobol, Morris methods)
-- **Interactive GUI**: User-friendly interface for parameter configuration
-- **Real-time Visualization**: Live plotting and spatial movement visualization
-- **Statistical Tools**: Multiple simulation runs with statistical analysis
+This repository contains a sophisticated Agent-Based Model (ABM) that simulates the complex dynamics of artisanal fisheries. The model investigates how **fishing behavior** (cooperation traits) and **differing fish species** affect fish populations and fishery yields.
 
 ## Quick Start
 

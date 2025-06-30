@@ -22,6 +22,7 @@ The project is organized as follows:
 - `parameters.py`: Central configuration of all model parameters
 - `fish.py`: Fish population initialization and parameters
 - `DynamicCoopUI.py`: Graphical user interface for parameter configuration and simulation execution
+- `SimulationVisualizer.py`: Real-time visualization of fish and fisher movements
 
 ### Analysis Scripts
 - `sens_anl.py`: Comprehensive sensitivity analysis (OFAT, Sobol, Morris methods)
@@ -102,8 +103,12 @@ Option 1 (Graphical User Interface):
 python DynamicCoopUI.py
 ```
 2. Adjust parameters through the tabbed interface
-3. Click "Run Simulation" to execute with your custom settings
+3. In the "Visualization" tab, you can enable:
+   - Live plotting during simulation
+   - Real-time movement visualization of fish and fishers
+4. Click "Run Simulation" to execute with your custom settings
 
+Note: When using the real-time movement visualization, you can press the space bar to pause and resume the animation.
 
 Option 2 (Command line):
 1. Configure simulation parameters in `parameters.py`

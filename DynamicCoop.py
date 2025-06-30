@@ -18,6 +18,7 @@ import copy as cp
 import random as rd
 import math
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
 import csv 
 from statistics import mean
@@ -833,8 +834,14 @@ def run_simulation(experiment_type='both'):
     initialize(experiment_type)
     observe()
     
-    # Setup live plot
-    axes, plot_lines = setup_live_plot()
+    # Check if live plotting is enabled
+    enable_live_plotting = getattr(sys.modules['parameters'], 'enable_live_plotting', False)
+    
+    # Setup live plot if enabled
+    axes = None
+    plot_lines = None
+    if enable_live_plotting:
+        axes, plot_lines = setup_live_plot()
     
     print("Starting simulation...")
     for j in tqdm(range(1, n), desc="Simulating", unit="step"):
@@ -842,11 +849,11 @@ def run_simulation(experiment_type='both'):
         observe()
         
         # Update live plot periodically if enabled
-        if j % plot_update_freq == 0:
+        if enable_live_plotting and j % plot_update_freq == 0:
             update_live_plot(axes, plot_lines, j)
     
-    # Final plot update
-    if len(total_fish_count) == n:
+    # Final plot update if enabled
+    if enable_live_plotting and len(total_fish_count) == n:
         update_live_plot(axes, plot_lines, n-1)
     
     plot_summary()

@@ -5,6 +5,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 from types import ModuleType
+from SimulationVisualizer import run_with_visualization
 
 class CoopSimulationUI:
     def __init__(self, root):
@@ -208,6 +209,15 @@ class CoopSimulationUI:
         self.enable_live_plot_var = tk.BooleanVar(value=False)
         tk.Checkbutton(frame, text="Enable Live Plot During Simulation", 
                       variable=self.enable_live_plot_var).grid(row=1, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+        
+        # Real-time fish and fisher movement visualization
+        self.enable_movement_visualization_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(frame, text="Show Fish and Fisher Movement in Real-time", 
+                      variable=self.enable_movement_visualization_var).grid(row=2, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+        
+        # Add tooltip or help text
+        tk.Label(frame, text="(Press space bar to pause/resume the movement visualization)", 
+                 fg="gray").grid(row=3, column=0, columnspan=3, sticky="w", padx=30, pady=2)
     
     def validate_fisher_counts(self, *args):
         try:
@@ -286,24 +296,31 @@ class CoopSimulationUI:
         # Apply matplotlib patches
         self.patch_matplotlib()
         
-        # Modify DynamicCoop.py's plotting if needed
-        if self.enable_live_plot_var.get():
-            # We need to modify DynamicCoop.py to uncomment the live plotting code
-            # This is done by the user before running since we were asked not to modify code
-            pass
+        # Add a module-level flag for live plotting that DynamicCoop can check
+        if hasattr(self.params_module, 'enable_live_plotting'):
+            self.params_module.enable_live_plotting = self.enable_live_plot_var.get()
+        else:
+            # Add the attribute if it doesn't exist
+            setattr(self.params_module, 'enable_live_plotting', self.enable_live_plot_var.get())
             
         # Hide UI temporarily
         self.root.withdraw()
         
         try:
-            # Import and run DynamicCoop.py
+            # Import DynamicCoop.py
             import DynamicCoop
             # Force reload to ensure it sees updated parameters
             importlib.reload(DynamicCoop)
             
-            # Run the simulation using the function instead of direct execution
+            # Determine which run method to use based on visualization options
             experiment_label = 'both'  # You could make this an option in the UI
-            DynamicCoop.run_simulation(experiment_label)
+            
+            if self.enable_movement_visualization_var.get():
+                # Run with movement visualization
+                run_with_visualization(experiment_label)
+            else:
+                # Run with standard visualization
+                DynamicCoop.run_simulation(experiment_label)
         finally:
             # Show UI again
             self.root.deiconify()

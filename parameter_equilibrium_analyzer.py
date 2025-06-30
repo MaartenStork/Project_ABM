@@ -10,13 +10,11 @@ where the fish population reaches equilibrium in the ABM simulation.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
 import pandas as pd
 from tqdm import tqdm
 import os
 import itertools
 import multiprocessing
-from functools import partial
 import json
 import traceback
 import sys
@@ -25,14 +23,19 @@ print("Starting parameter equilibrium analyzer...")
 
 # Import simulation modules
 try:
-    from parameters import *
+    from parameters.parameters import BaseParameters, ModelParameters
     print("Successfully imported parameters")
-    import DynamicCoop as sim
+    import dynamic_coop as sim
     print("Successfully imported DynamicCoop")
 except Exception as e:
     print(f"Error importing modules: {e}")
     traceback.print_exc()
     sys.exit(1)
+
+
+BASE_PARAMS = BaseParameters()
+MODEL_PARAMS = ModelParameters()
+
 
 # Define equilibrium criteria
 def is_equilibrium(fish_counts, window_size=30, threshold=0.05, warm_up_period=50, extinction_threshold=10, growth_check=True):
@@ -138,55 +141,36 @@ def run_simulation_with_params(params):
     # Save original parameter values to restore later
     original_params = {}
     for param_name in params:
-        if param_name == 'noncoop':
-            original_params[param_name] = sim.noncoop
-            sim.noncoop = params[param_name]
-        elif param_name == 'reproduction_rate':
+        if param_name == 'reproduction_rate':
             # For reproduction_rate, we need to handle differently since it's part of fish agents
             original_params[param_name] = params[param_name]  # Just store for reference
-        elif param_name == 'trust_increase':
-            original_params[param_name] = globals()[param_name]
-            globals()[param_name] = params[param_name]
         else:
-            original_params[param_name] = globals()[param_name]
-            globals()[param_name] = params[param_name]
+            original_params[param_name] = getattr(BASE_PARAMS, param_name)
+            setattr(BASE_PARAMS, param_name, params[param_name])
     
     # Reset the simulation
     try:
-        print("Initializing simulation...")
-        sim.initialize('both')
-        
-        # Run the simulation but capture the fish counts without plotting
-        fish_counts = [sim.K]  # Start with carrying capacity
-        
-        print(f"Running simulation for {sim.n} time steps...")
-        for j in range(1, sim.n):
-            sim.update_one_unit_time()
-            sim.observe()
-            fish_counts.append(sim.total_fish_count[-1])
-            
-            # Print progress occasionally
-            if j % 50 == 0:
-                print(f"  Step {j}/{sim.n}: Fish count = {fish_counts[-1]}")
-                
+        print(f"Running simulation for {BASE_PARAMS.n} time steps...")
+        results = sim.run_model(MODEL_PARAMS, BASE_PARAMS, experiment_label='both')
+        fish_counts = results.total_fish_count # Start with carrying capacity
         print(f"Simulation complete. Final fish count: {fish_counts[-1]}")
     except Exception as e:
         print(f"Error during simulation: {e}")
         traceback.print_exc()
-        
+
         # Restore original parameters
         for param_name in original_params:
             if param_name == 'noncoop':
-                sim.noncoop = original_params[param_name]
+                BASE_PARAMS.noncoop = original_params[param_name]
             elif param_name != 'reproduction_rate':  # Skip reproduction_rate
-                globals()[param_name] = original_params[param_name]
-                
+                setattr(BASE_PARAMS, param_name, original_params[param_name])
+
         return {
             'params': params,
             'equilibrium_reached': False,
             'error': str(e)
         }
-    
+
     # Check if equilibrium was reached
     eq_reached, eq_value, eq_time, eq_status = is_equilibrium(
         fish_counts, 
@@ -197,9 +181,9 @@ def run_simulation_with_params(params):
     # Restore original parameters
     for param_name in original_params:
         if param_name == 'noncoop':
-            sim.noncoop = original_params[param_name]
+            BASE_PARAMS.noncoop = original_params[param_name]
         else:
-            globals()[param_name] = original_params[param_name]
+            setattr(BASE_PARAMS, param_name, original_params[param_name])
     
     return {
         'params': params,
@@ -553,9 +537,9 @@ if __name__ == "__main__":
     # Define parameter ranges to test - OPTIMIZED LONG SIMULATION SWEEP
     # With 10x10x10 = 1000 combinations + 350 time steps = 12-14 hours runtime
     param_ranges = {
-        'reproduction_rate': np.linspace(0.05, 0.25, 12),     # 12 values: 0.05 to 0.25
-        'trust_increase': np.linspace(0.0001, 0.3, 12),       # 12 values: 0.0001 to 0.3
-        'imitation_radius': np.linspace(0.01, 1.5, 12),       # 12 values: 0.01 to 1.5
+        'reproduction_rate': np.linspace(0.65, 0.85, 12),  # 12 values: 0.65 to 0.85
+        'trust_increase': np.linspace(0.0001, 0.3, 12),  # 12 values: 0.0001 to 0.3
+        'imitation_radius': np.linspace(0.01, 1.5, 12),  # 12 values: 0.01 to 1.5
     }
     
     print(f"Parameter ranges to test: {param_ranges}")

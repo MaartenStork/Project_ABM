@@ -36,10 +36,11 @@ Results interpretation:
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import DynamicCoop as dc
+import dynamic_coop as dc
 import parameters
 import pandas as pd
 import os
+from parameters.parameters import ModelParameters, BaseParameters
 
 # For Sobol sampling
 from SALib.sample import sobol as sobol_sample
@@ -47,6 +48,10 @@ from SALib.analyze import sobol as sobol_analyze
 # For Morris screening
 from SALib.sample import morris as morris_sample
 from SALib.analyze import morris as morris_analyze
+
+
+BASE_PARAMS = BaseParameters()
+MODEL_PARAMS = ModelParameters()
 
 
 def run_model(n_timesteps=1000):
@@ -58,38 +63,24 @@ def run_model(n_timesteps=1000):
     system behavior while maintaining computational efficiency.
     System has inherent stochasticity, so multiple reps handle variability.
     """
-    dc.initialize('reproduction_rate')
-    
-    # If reproduction_rate parameter exists, apply it to all fish for homogeneous analysis
-    if hasattr(parameters, 'reproduction_rate'):
-        for agent in dc.agents:
-            if agent.type == 'fish':
-                setattr(agent, 'reproduction_rate', parameters.reproduction_rate)
-    
     # Run for more timesteps to capture mature behavior
-    for _ in range(n_timesteps):
-        dc.update_one_unit_time()
-    return dc.total_fish_count[-1]
+    model_params = ModelParameters()
+    results = dc.run_model(t_max=n_timesteps, experiment_label='default', base_params=BASE_PARAMS, model_params=model_params)
+    return results.total_fish_count[-1]
 
 
 def get_param_names_and_bounds():
-    # Add reproduction_rate as a parameter if it doesn't exist
-    if not hasattr(parameters, 'reproduction_rate'):
-        setattr(parameters, 'reproduction_rate', 0.3)  # Set default value
-    
     # gather numeric parameters
-    names = [name for name, val in vars(parameters).items()
-             if not name.startswith('_') and isinstance(val, (int, float))]
+    names = [
+        name for name, val in vars(BASE_PARAMS).items()
+        if not name.startswith('_') and isinstance(val, (int, float))
+    ]
     exclude = {
         # Exclude non-parameter variables and fixed scenario params
         'n', 'Area', 'Length_Area', 'half_length_area',
         
         # Exclude derived parameters
         'rad_repulsion_sqr', 'rad_orientation_sqr', 'rad_attraction_sqr', 'r_sqr',
-                
-        # Exclude all MPA-related parameters
-        'Time_MPA', 'Type_MPA', 'Dist_MPA', 'Frac_MPA', 'Half_Length',
-        'Xa', 'Xb', 'Ya', 'Yb', 'Xm', 'Xn', 'Ym', 'Yn', 'Xp', 'Xq', 'Yp', 'Yq',
         
         # Exclude plotting parameter
         'plot_update_freq',
@@ -106,45 +97,43 @@ def get_param_names_and_bounds():
     names.sort()
     
     # Store original values for restoration
-    original_values = {p: getattr(parameters, p) for p in names}
+    original_values = {p: getattr(BASE_PARAMS, p) for p in names}
     
     # bounds ±50%
-    bounds = [[getattr(parameters, p)*0.5, getattr(parameters, p)*1.5] for p in names]
+    bounds = [[getattr(BASE_PARAMS, p)*0.5, getattr(BASE_PARAMS, p)*1.5] for p in names]
     return names, bounds, original_values
+
+
+def rescale_boids_radii(scale_val):
+        BASE_PARAMS.rad_repulsion = 0.025 * scale_val
+        BASE_PARAMS.rad_orientation = 0.06 * scale_val
+        BASE_PARAMS.rad_attraction = 0.1 * scale_val
+        BASE_PARAMS.rad_repulsion_sqr = BASE_PARAMS.rad_repulsion ** 2
+        BASE_PARAMS.rad_orientation_sqr = BASE_PARAMS.rad_orientation ** 2
+        BASE_PARAMS.rad_attraction_sqr = BASE_PARAMS.rad_attraction ** 2
 
 
 def update_parameters(param_names, param_values):
     """Update parameters and handle derived parameters"""
     for name, val in zip(param_names, param_values):
-        setattr(parameters, name, val)
+        setattr(BASE_PARAMS, name, val)
     
     # Handle derived parameters that depend on scale
     if 'scale' in param_names:
-        scale_val = getattr(parameters, 'scale')
-        parameters.rad_repulsion = 0.025 * scale_val
-        parameters.rad_orientation = 0.06 * scale_val
-        parameters.rad_attraction = 0.1 * scale_val
-        parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
-        parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
-        parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+        scale_val = getattr(BASE_PARAMS, 'scale')
+        rescale_boids_radii(scale_val)
 
 
 def restore_parameters(param_names, original_values):
     """Restore parameters to their original values after analysis"""
     for name in param_names:
         if name in original_values:
-            setattr(parameters, name, original_values[name])
+            setattr(BASE_PARAMS, name, original_values[name])
     
     # Restore derived parameters if scale was included
     if 'scale' in param_names and 'scale' in original_values:
         scale_val = original_values['scale']
-        parameters.rad_repulsion = 0.025 * scale_val
-        parameters.rad_orientation = 0.06 * scale_val
-        parameters.rad_attraction = 0.1 * scale_val
-        parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
-        parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
-        parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
-
+        rescale_boids_radii(scale_val)
 
 def ofat_analysis(param_names, original_values, n_points=25, n_reps=50):
     """One-Factor-At-A-Time analysis with statistically significant sample sizes"""
@@ -154,32 +143,33 @@ def ofat_analysis(param_names, original_values, n_points=25, n_reps=50):
         means = np.zeros(n_points)
         stds  = np.zeros(n_points)
         for i, xi in enumerate(tqdm(x, desc=f"OFAT {p}")):
-            setattr(parameters, p, xi)
+            setattr(BASE_PARAMS, p, xi)
             
             # Handle derived parameters that depend on scale
             if p == 'scale':
-                parameters.rad_repulsion = 0.025 * xi
-                parameters.rad_orientation = 0.06 * xi
-                parameters.rad_attraction = 0.1 * xi
-                parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
-                parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
-                parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+                rescale_boids_radii(xi)
             
             Y = [run_model() for _ in range(n_reps)]
             means[i] = np.mean(Y)
             stds[i]  = np.std(Y, ddof=1)
         ofat_results[p] = (x, means, stds)
-        setattr(parameters, p, original_values[p])  # Restore original value
+        setattr(BASE_PARAMS, p, original_values[p])  # Restore original value
         
         # Restore derived parameters if we changed scale
         if p == 'scale':
-            parameters.rad_repulsion = 0.025 * original_values['scale']
-            parameters.rad_orientation = 0.06 * original_values['scale']
-            parameters.rad_attraction = 0.1 * original_values['scale']
-            parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
-            parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
-            parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+            scale_val = original_values['scale']
+            rescale_boids_radii(scale_val)
     return ofat_results
+
+
+def plot_parameters(param, ofat_results, axes):
+    x, m, s = ofat_results[param]
+    axes[i].plot(x, m, '-', color='#1f77b4', lw=2)
+    axes[i].fill_between(x, m-s, m+s, color='#1f77b4', alpha=0.2)
+    axes[i].set_title(param)
+    axes[i].set_xlabel(param)
+    axes[i].set_ylabel('Final fish')
+    axes[i].grid(True, alpha=0.3)
 
 
 def plot_ofat(ofat_results, filename='ofat_full.png'):
@@ -197,25 +187,13 @@ def plot_ofat(ofat_results, filename='ofat_full.png'):
     # Plot first row parameters
     for i, param in enumerate(first_row_params):
         if param in ofat_results:
-            x, m, s = ofat_results[param]
-            axes[i].plot(x, m, '-', color='#1f77b4', lw=2)
-            axes[i].fill_between(x, m-s, m+s, color='#1f77b4', alpha=0.2)
-            axes[i].set_title(param)
-            axes[i].set_xlabel(param)
-            axes[i].set_ylabel('Final fish')
-            axes[i].grid(True, alpha=0.3)
+            plot_parameters(param, ofat_results, axes)
     
     # Plot remaining parameters
     for i, param in enumerate(other_params):
         ax_idx = i + len(first_row_params)
         if ax_idx < len(axes):
-            x, m, s = ofat_results[param]
-            axes[ax_idx].plot(x, m, '-', color='#1f77b4', lw=2)
-            axes[ax_idx].fill_between(x, m-s, m+s, color='#1f77b4', alpha=0.2)
-            axes[ax_idx].set_title(param)
-            axes[ax_idx].set_xlabel(param)
-            axes[ax_idx].set_ylabel('Final fish')
-            axes[ax_idx].grid(True, alpha=0.3)
+            plot_parameters(param, ofat_results, axes)
     
     # Hide any unused subplots
     for ax in axes[len(ofat_results):]:
@@ -225,6 +203,112 @@ def plot_ofat(ofat_results, filename='ofat_full.png'):
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print(f"OFAT results saved to {filename}")
     plt.show()
+
+
+def calculate_total_runs(sobol_type, sample_size, param_names):
+    if sobol_type == 'first':
+        total_runs = sample_size * (len(param_names) + 2)  # Formula for first-order only
+    elif sobol_type == 'second':
+        total_runs = sample_size * (2*len(param_names) + 2)  # Need second-order
+    elif sobol_type == 'total':
+        total_runs = sample_size * (len(param_names) + 2)  # Formula for total-order
+    elif sobol_type == 'first_total':
+        total_runs = sample_size * (len(param_names) + 2)  # Same as first/total
+    else:  # 'all'
+        total_runs = sample_size * (2*len(param_names) + 2)  # Formula for all indices
+    return total_runs
+
+
+def single_sobol(param_names, i, xi, Y, batch_buffer, write_batch_size, save_file, sample_size):
+    update_parameters(param_names, xi)
+    Y[i] = run_model(n_timesteps=sample_size)
+
+    # Collect row
+    row = dict(zip(param_names, xi))
+    row['model_output'] = Y[i]
+    batch_buffer.append(row)
+
+    # Write batch to CSV
+    if len(batch_buffer) >= write_batch_size:
+        df_batch = pd.DataFrame(batch_buffer)
+        df_batch.to_csv(save_file, mode='a', header=not os.path.exists(save_file), index=False)
+        batch_buffer.clear()
+
+
+def print_first_order(Si, param_names):
+    # Keep only first-order indices
+    filtered_Si = {
+        'S1': Si['S1'],
+        'S1_conf': Si['S1_conf'],
+        'names': Si.get('names', param_names)
+    }
+    print("\n=== FIRST-ORDER SOBOL INDICES ONLY ===")
+    for i, name in enumerate(param_names):
+        print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}")
+    return filtered_Si
+
+
+def print_second_order(Si, param_names):
+    # Keep only second-order indices
+    filtered_Si = {
+        'S2': Si['S2'],
+        'S2_conf': Si['S2_conf'],
+        'names': Si.get('names', param_names)
+    }
+    print("\n=== SECOND-ORDER SOBOL INDICES ONLY ===")
+    print("Parameter interactions (S2):")
+    for i in range(len(param_names)):
+        for j in range(i + 1, len(param_names)):
+            print(f"{param_names[i]} × {param_names[j]}: S2 = {Si['S2'][i, j]:.3f} ± {Si['S2_conf'][i, j]:.3f}")
+    return filtered_Si
+
+
+def print_total_order(Si, param_names):
+    # Keep only total-order indices
+    filtered_Si = {
+        'ST': Si['ST'],
+        'ST_conf': Si['ST_conf'],
+        'names': Si.get('names', param_names)
+    }
+    print("\n=== TOTAL-ORDER SOBOL INDICES ONLY ===")
+    for i, name in enumerate(param_names):
+        print(f"{name}: ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
+    return filtered_Si
+
+
+def print_first_total_order(Si, param_names):
+    # Keep first-order and total-order indices
+    filtered_Si = {
+        'S1': Si['S1'],
+        'S1_conf': Si['S1_conf'],
+        'ST': Si['ST'],
+        'ST_conf': Si['ST_conf'],
+        'names': Si.get('names', param_names)
+    }
+    print("\n=== FIRST-ORDER AND TOTAL-ORDER SOBOL INDICES ===")
+    for i, name in enumerate(param_names):
+        print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}, ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
+    return filtered_Si
+
+
+def print_all_orders(Si, param_names):
+    filtered_Si = Si
+    print("\n=== ALL SOBOL INDICES ===")
+    print("First-order indices:")
+    for i, name in enumerate(param_names):
+        print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}")
+    print("\nTotal-order indices:")
+    for i, name in enumerate(param_names):
+        print(f"{name}: ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
+    print("\nTop second-order interactions:")
+    interactions = []
+    for i in range(len(param_names)):
+        for j in range(i + 1, len(param_names)):
+            interactions.append((param_names[i], param_names[j], Si['S2'][i, j]))
+    interactions.sort(key=lambda x: abs(x[2]), reverse=True)
+    for p1, p2, s2 in interactions[:5]:  # Show top 5 interactions
+        print(f"{p1} × {p2}: S2 = {s2:.3f}")
+    return filtered_Si
 
 
 def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type='all'):
@@ -266,17 +350,7 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol
     # Determine calculation requirements
     calc_second_order = sobol_type in ['all', 'second']
     
-    # Calculate total runs based on what we're computing
-    if sobol_type == 'first':
-        total_runs = sample_size * (len(param_names) + 2)  # Formula for first-order only
-    elif sobol_type == 'second':
-        total_runs = sample_size * (2*len(param_names) + 2)  # Need second-order
-    elif sobol_type == 'total':
-        total_runs = sample_size * (len(param_names) + 2)  # Formula for total-order
-    elif sobol_type == 'first_total':
-        total_runs = sample_size * (len(param_names) + 2)  # Same as first/total
-    else:  # 'all'
-        total_runs = sample_size * (2*len(param_names) + 2)  # Formula for all indices
+    total_runs = calculate_total_runs(sobol_type, param_names=param_names, sample_size=sample_size)
     
     print(f"Sampling for Sobol ({sobol_type}): N={sample_size} (Total model runs: {total_runs})")
     
@@ -288,19 +362,7 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol
     
     # Run model evaluations
     for i, xi in enumerate(tqdm(X, desc=f'Sobol runs ({sobol_type})')):
-        update_parameters(param_names, xi)
-        Y[i] = run_model()
-
-        # Collect row
-        row = dict(zip(param_names, xi))
-        row['model_output'] = Y[i]
-        batch_buffer.append(row)
-
-        # Write batch to CSV
-        if len(batch_buffer) >= write_batch_size:
-            df_batch = pd.DataFrame(batch_buffer)
-            df_batch.to_csv(save_file, mode='a', header=not os.path.exists(save_file), index=False)
-            batch_buffer = []
+        single_sobol(param_names, i, xi, Y, batch_buffer, write_batch_size, save_file, sample_size)
 
     # Write any remaining rows
     if batch_buffer:
@@ -312,75 +374,83 @@ def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol
     
     # Analyze results based on type requested
     Si = sobol_analyze.analyze(problem, Y, calc_second_order=calc_second_order, print_to_console=True)
-    
+
     # Filter results based on requested type
     if sobol_type == 'first':
         # Keep only first-order indices
-        filtered_Si = {
-            'S1': Si['S1'],
-            'S1_conf': Si['S1_conf'],
-            'names': Si.get('names', param_names)
-        }
-        print("\n=== FIRST-ORDER SOBOL INDICES ONLY ===")
-        for i, name in enumerate(param_names):
-            print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}")
-            
+        filtered_Si = print_first_order(Si, param_names)
     elif sobol_type == 'second':
-        # Keep only second-order indices
-        filtered_Si = {
-            'S2': Si['S2'],
-            'S2_conf': Si['S2_conf'],
-            'names': Si.get('names', param_names)
-        }
-        print("\n=== SECOND-ORDER SOBOL INDICES ONLY ===")
-        print("Parameter interactions (S2):")
-        for i in range(len(param_names)):
-            for j in range(i+1, len(param_names)):
-                print(f"{param_names[i]} × {param_names[j]}: S2 = {Si['S2'][i,j]:.3f} ± {Si['S2_conf'][i,j]:.3f}")
-                
+        filtered_Si = print_second_order(Si, param_names)
     elif sobol_type == 'total':
-        # Keep only total-order indices  
-        filtered_Si = {
-            'ST': Si['ST'],
-            'ST_conf': Si['ST_conf'],
-            'names': Si.get('names', param_names)
-        }
-        print("\n=== TOTAL-ORDER SOBOL INDICES ONLY ===")
-        for i, name in enumerate(param_names):
-            print(f"{name}: ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
-            
+        filtered_Si = print_total_order(Si, param_names)
     elif sobol_type == 'first_total':
-        # Keep first-order and total-order indices
-        filtered_Si = {
-            'S1': Si['S1'],
-            'S1_conf': Si['S1_conf'],
-            'ST': Si['ST'],
-            'ST_conf': Si['ST_conf'],
-            'names': Si.get('names', param_names)
-        }
-        print("\n=== FIRST-ORDER AND TOTAL-ORDER SOBOL INDICES ===")
-        for i, name in enumerate(param_names):
-            print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}, ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
-            
+        filtered_Si = print_first_total_order(Si, param_names)
     else:  # 'all'
-        filtered_Si = Si
-        print("\n=== ALL SOBOL INDICES ===")
-        print("First-order indices:")
-        for i, name in enumerate(param_names):
-            print(f"{name}: S1 = {Si['S1'][i]:.3f} ± {Si['S1_conf'][i]:.3f}")
-        print("\nTotal-order indices:")
-        for i, name in enumerate(param_names):
-            print(f"{name}: ST = {Si['ST'][i]:.3f} ± {Si['ST_conf'][i]:.3f}")
-        print("\nTop second-order interactions:")
-        interactions = []
-        for i in range(len(param_names)):
-            for j in range(i+1, len(param_names)):
-                interactions.append((param_names[i], param_names[j], Si['S2'][i,j]))
-        interactions.sort(key=lambda x: abs(x[2]), reverse=True)
-        for p1, p2, s2 in interactions[:5]:  # Show top 5 interactions
-            print(f"{p1} × {p2}: S2 = {s2:.3f}")
+        filtered_Si = print_all_orders(Si, param_names)
     
     return filtered_Si
+
+
+def plot_first_order(Si, param_names, n_plots, plot_idx):
+    S1 = np.array(Si['S1'])
+    S1_conf = np.array(Si['S1_conf'])
+    idx = np.argsort(-S1)
+    sorted_names = [param_names[i] for i in idx]
+    sorted_S1 = S1[idx]
+    sorted_conf = S1_conf[idx]
+
+    ax1 = plt.subplot(n_plots, 1, plot_idx)
+    y_pos = np.arange(len(sorted_names))
+    ax1.barh(y_pos, sorted_S1, xerr=sorted_conf, align='center', color='skyblue', ecolor='gray', capsize=4)
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels(sorted_names)
+    ax1.invert_yaxis()
+    ax1.set_xlabel('First-order Sobol index')
+    ax1.set_title('First-order Sensitivity Indices (S1)')
+    ax1.grid(axis='x', linestyle='--', alpha=0.5)
+    plot_idx += 1
+
+
+def plot_total_order(Si, param_names, n_plots, plot_idx):
+    ST = np.array(Si['ST'])
+    ST_conf = np.array(Si['ST_conf'])
+    idx_t = np.argsort(-ST)
+    sorted_names_t = [param_names[i] for i in idx_t]
+    sorted_ST = ST[idx_t]
+    sorted_ST_conf = ST_conf[idx_t]
+
+    ax2 = plt.subplot(n_plots, 1, plot_idx)
+    y_pos = np.arange(len(sorted_names_t))
+    ax2.barh(y_pos, sorted_ST, xerr=sorted_ST_conf, align='center', color='lightgreen', ecolor='gray', capsize=4)
+    ax2.set_yticks(y_pos)
+    ax2.set_yticklabels(sorted_names_t)
+    ax2.invert_yaxis()
+    ax2.set_xlabel('Total-order Sobol index')
+    ax2.set_title('Total-order Sensitivity Indices (ST)')
+    ax2.grid(axis='x', linestyle='--', alpha=0.5)
+    plot_idx += 1
+
+
+def plot_second_order(Si, param_names, n_plots, plot_idx):
+    ax3 = plt.subplot(n_plots, 1, plot_idx)
+    S2 = Si['S2']
+
+    # Make the S2 matrix symmetric by copying upper triangle to lower triangle
+    S2_symmetric = S2.copy()
+    for i in range(len(param_names)):
+        for j in range(i):
+            S2_symmetric[i, j] = S2_symmetric[j, i]
+
+    im = ax3.imshow(S2_symmetric, cmap='YlOrRd', aspect='equal')
+    plt.colorbar(im, ax=ax3, label='Second-order Sensitivity Index')
+
+    # Add parameter names to axes with better formatting
+    ax3.set_xticks(np.arange(len(param_names)))
+    ax3.set_yticks(np.arange(len(param_names)))
+    ax3.set_xticklabels(param_names, rotation=90, ha='center', fontsize=8)
+    ax3.set_yticklabels(param_names, fontsize=8)
+
+    ax3.set_title('Second-order Interactions (S2)')
 
 
 def plot_sobol(Si, param_names, filename='sobol_indices.png', sobol_type='all'):
@@ -415,65 +485,15 @@ def plot_sobol(Si, param_names, filename='sobol_indices.png', sobol_type='all'):
     
     # First-order indices plot
     if has_first:
-        S1 = np.array(Si['S1'])
-        S1_conf = np.array(Si['S1_conf'])
-        idx = np.argsort(-S1)
-        sorted_names = [param_names[i] for i in idx]
-        sorted_S1 = S1[idx]
-        sorted_conf = S1_conf[idx]
-        
-        ax1 = plt.subplot(n_plots, 1, plot_idx)
-        y_pos = np.arange(len(sorted_names))
-        ax1.barh(y_pos, sorted_S1, xerr=sorted_conf, align='center', color='skyblue', ecolor='gray', capsize=4)
-        ax1.set_yticks(y_pos)
-        ax1.set_yticklabels(sorted_names)
-        ax1.invert_yaxis()
-        ax1.set_xlabel('First-order Sobol index')
-        ax1.set_title('First-order Sensitivity Indices (S1)')
-        ax1.grid(axis='x', linestyle='--', alpha=0.5)
-        plot_idx += 1
+        plot_first_order(Si, param_names, n_plots, plot_idx)
     
     # Total-order indices plot
     if has_total:
-        ST = np.array(Si['ST'])
-        ST_conf = np.array(Si['ST_conf'])
-        idx_t = np.argsort(-ST)
-        sorted_names_t = [param_names[i] for i in idx_t]
-        sorted_ST = ST[idx_t]
-        sorted_ST_conf = ST_conf[idx_t]
-        
-        ax2 = plt.subplot(n_plots, 1, plot_idx)
-        y_pos = np.arange(len(sorted_names_t))
-        ax2.barh(y_pos, sorted_ST, xerr=sorted_ST_conf, align='center', color='lightgreen', ecolor='gray', capsize=4)
-        ax2.set_yticks(y_pos)
-        ax2.set_yticklabels(sorted_names_t)
-        ax2.invert_yaxis()
-        ax2.set_xlabel('Total-order Sobol index')
-        ax2.set_title('Total-order Sensitivity Indices (ST)')
-        ax2.grid(axis='x', linestyle='--', alpha=0.5)
-        plot_idx += 1
+        plot_total_order(Si, param_names, n_plots, plot_idx)
     
     # Second-order interactions heatmap
     if has_second:
-        ax3 = plt.subplot(n_plots, 1, plot_idx)
-        S2 = Si['S2']
-        
-        # Make the S2 matrix symmetric by copying upper triangle to lower triangle
-        S2_symmetric = S2.copy()
-        for i in range(len(param_names)):
-            for j in range(i):
-                S2_symmetric[i,j] = S2_symmetric[j,i]
-        
-        im = ax3.imshow(S2_symmetric, cmap='YlOrRd', aspect='equal')
-        plt.colorbar(im, ax=ax3, label='Second-order Sensitivity Index')
-        
-        # Add parameter names to axes with better formatting
-        ax3.set_xticks(np.arange(len(param_names)))
-        ax3.set_yticks(np.arange(len(param_names)))
-        ax3.set_xticklabels(param_names, rotation=90, ha='center', fontsize=8)
-        ax3.set_yticklabels(param_names, fontsize=8)
-        
-        ax3.set_title('Second-order Interactions (S2)')
+        plot_second_order(Si, param_names, n_plots, plot_idx)
     
     # Adjust layout to prevent label cutoff
     plt.tight_layout(pad=3.0, h_pad=1.0)
@@ -563,12 +583,7 @@ def focused_ofat_analysis(n_points=25, n_reps=100):
             
             # Handle derived parameters for scale
             if param_name == 'scale':
-                parameters.rad_repulsion = 0.025 * xi
-                parameters.rad_orientation = 0.06 * xi
-                parameters.rad_attraction = 0.1 * xi
-                parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
-                parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
-                parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+                rescale_boids_radii(xi)
             
             # Run multiple repetitions
             Y = [run_model() for _ in range(n_reps)]
@@ -580,12 +595,7 @@ def focused_ofat_analysis(n_points=25, n_reps=100):
         # Restore original value
         setattr(parameters, param_name, original_val)
         if param_name == 'scale':
-            parameters.rad_repulsion = 0.025 * original_val
-            parameters.rad_orientation = 0.06 * original_val
-            parameters.rad_attraction = 0.1 * original_val
-            parameters.rad_repulsion_sqr = parameters.rad_repulsion ** 2
-            parameters.rad_orientation_sqr = parameters.rad_orientation ** 2
-            parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
+            rescale_boids_radii(original_val)
         
         # Print summary
         effect_size = max(means) - min(means)
@@ -669,7 +679,7 @@ if __name__=='__main__':
     
     # Parse command line arguments
     quick_mode = False
-    sobol_type = 'all'
+    sobol_type = 'first'
     
     if len(sys.argv) > 1:
         for arg in sys.argv[1:]:

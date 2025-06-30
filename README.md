@@ -49,11 +49,8 @@ python DynamicCoop.py
 
 - [Model Architecture](#model-architecture)
 - [Usage Guide](#usage-guide)
-- [Configuration](#configuration)
 - [Analysis Tools](#analysis-tools)
 - [Project Structure](#project-structure)
-- [Examples](#examples)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Model Architecture

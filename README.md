@@ -110,33 +110,6 @@ python sens_anl.py quick
 python sens_anl.py first_total
 ```
 
-## Configuration
-
-### Cooperation Scenarios
-
-| Scenario                   | Fully Non-Coop | Non-Coop | Conditional | Coop | Fully Coop |
-| -------------------------- | -------------- | -------- | ----------- | ---- | ---------- |
-| **Low Cooperation**  | 6              | 5        | 4           | 3    | 2          |
-| **Intermediate**     | 4              | 4        | 4           | 4    | 4          |
-| **High Cooperation** | 2              | 3        | 4           | 5    | 6          |
-
-## Analysis Tools
-
-### Built-in Sensitivity Analysis
-
-- **OFAT (One-Factor-At-A-Time)**: Individual parameter impact assessment
-- **Sobol Analysis**: Global sensitivity with interaction effects
-- **Morris Screening**: Efficient parameter screening for large parameter spaces
-
-### Specialized Analysis Scripts
-
-| Script                                | Purpose                              |
-| ------------------------------------- | ------------------------------------ |
-| `morris_analysis_no_mpa.py`         | Morris analysis for no-MPA scenarios |
-| `parameter_equilibrium_analyzer.py` | Equilibrium state analysis           |
-| `balanced_stability_analysis.py`    | System stability assessment          |
-| `five_param_sens.py`                | Focused analysis on key parameters   |
-
 ## Project Structure
 
 ```
@@ -156,26 +129,6 @@ Project_ABM/
 ├── plots/                       # Generated visualizations
 └── simulation_output/           # Results data
 ```
-
-## Examples
-
-### Parameter Sensitivity Results
-
-The model provides comprehensive sensitivity analysis showing which parameters most significantly impact:
-
-- Fish population dynamics
-- Fishing yields
-- Cooperation emergence
-- MPA effectiveness
-
-### Trust Dynamics
-
-Trust evolves dynamically based on:
-
-- Observed fishing behavior
-- Spatial proximity
-- Historical interactions
-- Local fish density
 
 ## Requirements
 

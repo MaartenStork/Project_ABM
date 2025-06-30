@@ -2,6 +2,56 @@
 
 This repository contains an Agent-Based Model (ABM) that simulates the dynamics of a small-scale, artisanal fishery. The model investigates the combined effects of fishing behavior (expressed through cooperation traits) and different designs of Marine Protected Areas (MPAs) on fish abundances and fishery yields.
 
+## Usage Instructions
+
+### Basic Simulation
+
+Option 1 (Graphical User Interface):
+1. Launch the graphical parameter interface:
+```python
+python DynamicCoopUI.py
+```
+2. Adjust parameters through the tabbed interface
+3. In the "Visualization" tab, select one of these visualization options:
+   - No Live Visualization (fastest execution)
+   - Show Live Plots (population and catch graphs)
+   - Show Fish and Fisher Movement in Real-time (interactive spatial view)
+4. Click "Run Simulation" to execute with your custom settings
+
+Note: When using the real-time movement visualization, you can press the space bar to pause and resume the animation.
+
+Option 2 (Command line):
+1. Configure simulation parameters in `parameters.py`
+2. Run the main simulation:
+```python
+python DynamicCoop.py
+```
+
+### Sensitivity Analysis
+
+For comprehensive sensitivity analysis:
+```python
+python sens_anl.py
+```
+
+For quick test with reduced sample sizes:
+```python
+python sens_anl.py quick
+```
+
+For specific Sobol analysis types:
+```python
+python sens_anl.py first_total  # First-order and total-order indices only
+```
+
+### Multiple Simulation Runs
+
+To run statistical analysis across multiple simulations:
+```python
+python run_multiple_simulations.py
+```
+
+
 ## Overview
 
 The model comprises two types of agents:
@@ -93,54 +143,6 @@ Runs repeated simulations to generate statistical data on model behavior, with c
 - Cooperation levels
 - MPA configurations
 
-## Usage Instructions
-
-### Basic Simulation
-
-Option 1 (Graphical User Interface):
-1. Launch the graphical parameter interface:
-```python
-python DynamicCoopUI.py
-```
-2. Adjust parameters through the tabbed interface
-3. In the "Visualization" tab, select one of these visualization options:
-   - No Live Visualization (fastest execution)
-   - Show Live Plots (population and catch graphs)
-   - Show Fish and Fisher Movement in Real-time (interactive spatial view)
-4. Click "Run Simulation" to execute with your custom settings
-
-Note: When using the real-time movement visualization, you can press the space bar to pause and resume the animation.
-
-Option 2 (Command line):
-1. Configure simulation parameters in `parameters.py`
-2. Run the main simulation:
-```python
-python DynamicCoop.py
-```
-
-### Sensitivity Analysis
-
-For comprehensive sensitivity analysis:
-```python
-python sens_anl.py
-```
-
-For quick test with reduced sample sizes:
-```python
-python sens_anl.py quick
-```
-
-For specific Sobol analysis types:
-```python
-python sens_anl.py first_total  # First-order and total-order indices only
-```
-
-### Multiple Simulation Runs
-
-To run statistical analysis across multiple simulations:
-```python
-python run_multiple_simulations.py
-```
 
 ## Original Model Parameters
 

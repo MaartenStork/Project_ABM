@@ -27,7 +27,7 @@ A report detailing the design of the model further is included in the repository
 ## Running Code
 
 The file `dynamic_coop.py` contains the model code (in python) and is the script to
-run for a single simulation. It generates a `simulation.GIF` file in the simulation_output
+run for a single simulation. It generates a `simulation.gif` file in the `simulation_output`
 directory. The GIF shows the movement and interactions between agents over the span
 of one simulation.
 
@@ -40,10 +40,17 @@ The classes were created post-hoc in code cleanup, because of which object-orien
 programming is mostly not practiced in the main code. As such, most class functions
 had to be made static.
 
-Various sensitivity analysis files have been created and can be run. One run may take
-many hours depending on the number of timesteps used for each simulation, the number of
+Sensitivity analysis can be run using `python sens_anl [type]`, with `[type]` replaced by
+first, second, total, first_total, or nothing, which runs all. One run may take
+many hours depending on the number of time steps used for each simulation, the number of
 parameters to evaluate, the number of parameter values to evaluate for, and access to
 proper computational hardware.
+
+Equilibrium states are evaluated with `parameter_equilibrium_analyzer.py`. The script runs
+simulations for many different parameter value combinations to find for which combinations
+the system reaches an equilibrium other than no fish or fish at carrying capacity. As such,
+one run may take many hours, as is the case with sensitivity analysis. The code is
+parallelized, so a multicore computer is assumed to run it.
 
 # Relevant references
 

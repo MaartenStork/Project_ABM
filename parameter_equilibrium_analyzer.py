@@ -33,10 +33,6 @@ except Exception as e:
     sys.exit(1)
 
 
-BASE_PARAMS = BaseParameters()
-MODEL_PARAMS = ModelParameters()
-
-
 # Define equilibrium criteria
 def is_equilibrium(fish_counts, window_size=30, threshold=0.05, warm_up_period=50, extinction_threshold=10, growth_check=True):
     """
@@ -137,33 +133,18 @@ def run_simulation_with_params(params):
         equilibrium value, and the parameters used
     """
     print(f"Running simulation with params: {params}")
-    
-    # Save original parameter values to restore later
-    original_params = {}
-    for param_name in params:
-        if param_name == 'reproduction_rate':
-            # For reproduction_rate, we need to handle differently since it's part of fish agents
-            original_params[param_name] = params[param_name]  # Just store for reference
-        else:
-            original_params[param_name] = getattr(BASE_PARAMS, param_name)
-            setattr(BASE_PARAMS, param_name, params[param_name])
+    base_parameters = BaseParameters()
+    model_parameters = ModelParameters()
     
     # Reset the simulation
     try:
-        print(f"Running simulation for {BASE_PARAMS.n} time steps...")
-        results = sim.run_model(MODEL_PARAMS, BASE_PARAMS, experiment_label='both')
+        print(f"Running simulation for {base_parameters.n} time steps...")
+        results = sim.run_model(model_parameters, base_parameters, experiment_label='both')
         fish_counts = results.total_fish_count # Start with carrying capacity
         print(f"Simulation complete. Final fish count: {fish_counts[-1]}")
     except Exception as e:
         print(f"Error during simulation: {e}")
         traceback.print_exc()
-
-        # Restore original parameters
-        for param_name in original_params:
-            if param_name == 'noncoop':
-                BASE_PARAMS.noncoop = original_params[param_name]
-            elif param_name != 'reproduction_rate':  # Skip reproduction_rate
-                setattr(BASE_PARAMS, param_name, original_params[param_name])
 
         return {
             'params': params,
@@ -177,13 +158,6 @@ def run_simulation_with_params(params):
         window_size=global_window_size, 
         warm_up_period=global_warm_up_period
     )
-    
-    # Restore original parameters
-    for param_name in original_params:
-        if param_name == 'noncoop':
-            BASE_PARAMS.noncoop = original_params[param_name]
-        else:
-            setattr(BASE_PARAMS, param_name, original_params[param_name])
     
     return {
         'params': params,

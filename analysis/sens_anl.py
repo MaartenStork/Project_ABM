@@ -32,13 +32,13 @@ from SALib.sample import morris as morris_sample
 from SALib.analyze import morris as morris_analyze
 
 
-def run_model(n_timesteps=1000):
+def run_model(n_timesteps=350):
     """
     Re-initialize and run the DynamicCoop model for n_timesteps,
     return final total fish count.
     
-    Using 300 timesteps instead of default 150 to capture more mature
-    system behavior while maintaining computational efficiency.
+    Using 350 timesteps as specified in the methods section to capture
+    mature system behavior and enable proper equilibrium detection.
     System has inherent stochasticity, so multiple reps handle variability.
     """
     dc.initialize('reproduction_rate')
@@ -129,8 +129,12 @@ def restore_parameters(param_names, original_values):
         parameters.rad_attraction_sqr = parameters.rad_attraction ** 2
 
 
-def ofat_analysis(param_names, original_values, n_points=25, n_reps=50):
-    """One-Factor-At-A-Time analysis with statistically significant sample sizes"""
+def ofat_analysis(param_names, original_values, n_points=25, n_reps=600):
+    """One-Factor-At-A-Time analysis with statistically significant sample sizes
+    
+    Using 600 repetitions per parameter value and 25 parameter values per factor
+    as specified in the methods section, totaling 15,000 model runs per parameter.
+    """
     ofat_results = {}
     for p in param_names:
         x = np.linspace(original_values[p]*0.5, original_values[p]*1.5, n_points)
@@ -210,20 +214,24 @@ def plot_ofat(ofat_results, filename='ofat_full.png'):
     plt.show()
 
 
-def sobol_analysis(param_names, bounds, original_values, sample_size=1000, sobol_type='all'):
+def sobol_analysis(param_names, bounds, original_values, sample_size=2500, sobol_type='all'):
     """
     Sobol sensitivity analysis with options to run specific Sobol index types
+    
+    Using Saltelli sampling scheme with N=2500 base sample size as specified in
+    the methods section, yielding 150,000 model evaluations for 29 parameters
+    (2500 × (2×29 + 2)) for robust estimation of Sobol indices at 95% confidence.
     
     Parameters:
     -----------
     param_names : list
-        List of parameter names
+        List of parameter names (29 numerical parameters)
     bounds : list
-        Parameter bounds
+        Parameter bounds (±50% of baseline values)
     original_values : list
         Original parameter values to restore
     sample_size : int
-        Number of samples for Sobol analysis
+        Number of samples for Sobol analysis (default 2500)
     sobol_type : str
         Type of Sobol analysis to run:
         - 'all': Run all indices (first-order, second-order, total-order) [default]
@@ -465,8 +473,13 @@ def plot_sobol(Si, param_names, filename='sobol_indices.png', sobol_type='all'):
     plt.show()
 
 
-def morris_analysis(param_names, bounds, original_values, num_trajectories=200, grid_levels=10):
-    """Morris screening with statistically significant sample size"""
+def morris_analysis(param_names, bounds, original_values, num_trajectories=1000, grid_levels=10):
+    """Morris elementary effects screening analysis
+    
+    Using 1000 trajectories and 10 grid levels as specified in the methods section.
+    This results in 1000 × (29 + 1) = 30,000 total model runs for robust
+    statistical significance of μ* and σ rankings at 95% confidence level.
+    """
     problem = {'num_vars': len(param_names), 'names': param_names, 'bounds': bounds}
     print(f"Sampling for Morris: trajectories={num_trajectories}, levels={grid_levels}")
     print(f"Total model runs: {num_trajectories * (len(param_names) + 1)}")
@@ -493,7 +506,7 @@ def plot_morris(Si, param_names, filename='morris_ee.png'):
                    fontsize=9, alpha=0.8)
     ax.set_xlabel(r'$\mu^*$ (mean absolute EE)')
     ax.set_ylabel(r'$\sigma$ (EE standard deviation)')
-    ax.set_title('Morris Elementary Effects Screening (200 trajectories)')
+    ax.set_title('Morris Elementary Effects Screening (1000 trajectories)')
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(filename, dpi=200)
@@ -501,7 +514,7 @@ def plot_morris(Si, param_names, filename='morris_ee.png'):
     plt.show()
 
 
-def focused_ofat_analysis(n_points=25, n_reps=100):
+def focused_ofat_analysis(n_points=25, n_reps=600):
     """
     Focused OFAT analysis on the 5 most important parameters identified by Morris screening
     """
@@ -584,10 +597,17 @@ def main(quick_test=False, sobol_type='all'):
     """
     Main sensitivity analysis function
     
+    Performs comprehensive sensitivity analysis as described in the methods section:
+    - Morris Elementary Effects: 1000 trajectories, 30,000 model runs
+    - OFAT Analysis: 600 repetitions per parameter value, 15,000 runs per parameter  
+    - Sobol Analysis: 2500 base sample size, up to 150,000 model evaluations
+    
+    All analyses use 350 timesteps and ±50% parameter ranges around baseline values.
+    
     Parameters:
     -----------
     quick_test : bool
-        Whether to run quick test with reduced sample sizes
+        Whether to run quick test with reduced sample sizes (Sobol only)
     sobol_type : str
         Type of Sobol analysis to run:
         - 'all': All indices (first-order, second-order, total-order) [default]
@@ -610,42 +630,64 @@ def main(quick_test=False, sobol_type='all'):
         Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=32, sobol_type=sobol_type)
         plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}_quick.png', sobol_type=sobol_type)
         
+        # Initialize placeholders for consistency
+        Si_morris = None
+        ofat_results = None
+        
         print(f"\nQuick test completed for {sobol_type} indices. For full statistically significant results, run main(quick_test=False)")
         
     else:
         print("\n=== FULL STATISTICAL ANALYSIS ===")
         print("WARNING: This will take many hours!")
         
-        # Calculate estimated runs based on sobol_type
+        # Calculate estimated runs based on sobol_type using N=2500 as per methods section
         if sobol_type == 'first':
-            sobol_runs = 350 * (len(param_names) + 2)
+            sobol_runs = 2500 * (len(param_names) + 2)
         elif sobol_type == 'second':
-            sobol_runs = 1000 * (2*len(param_names) + 2)
+            sobol_runs = 2500 * (2*len(param_names) + 2)
         elif sobol_type == 'total':
-            sobol_runs = 1000 * (len(param_names) + 2)
+            sobol_runs = 2500 * (len(param_names) + 2)
         elif sobol_type == 'first_total':
-            sobol_runs = 1000 * (len(param_names) + 2)
+            sobol_runs = 2500 * (len(param_names) + 2)
         else:  # 'all'
-            sobol_runs = 1000 * (2*len(param_names) + 2)
+            sobol_runs = 2500 * (2*len(param_names) + 2)  # 150,000 runs for 29 parameters
             
         total_runs_estimated = (
-            len(param_names) * 25 * 50 +  # OFAT (if enabled)
+            len(param_names) * 25 * 600 +  # OFAT: 15,000 runs per parameter
             sobol_runs +  # Sobol with specified type
-            200 * (len(param_names) + 1)  # Morris (if enabled)
+            1000 * (len(param_names) + 1)  # Morris: 30,000 runs total
         )
         print(f"Total estimated model runs: {total_runs_estimated:,}")
+        
+        # Morris Elementary Effects Analysis
+        print(f"\n=== Running Morris Elementary Effects Analysis ===")
+        morris_runs = 1000 * (len(param_names) + 1)
+        print(f"Estimated runs: {morris_runs:,}")
+        Si_morris = morris_analysis(param_names, bounds, original_values, num_trajectories=1000, grid_levels=10)
+        plot_morris(Si_morris, param_names, filename='morris_ee_full.png')
+        
+        # OFAT Analysis
+        print(f"\n=== Running OFAT Analysis ===")
+        ofat_runs = len(param_names) * 25 * 600
+        print(f"Estimated runs: {ofat_runs:,}")
+        ofat_results = ofat_analysis(param_names, original_values, n_points=25, n_reps=600)
+        plot_ofat(ofat_results, filename='ofat_full_600reps.png')
 
         # Sobol Analysis with specified type
         print(f"\n=== Running Sobol Analysis ({sobol_type}) ===")
         print(f"Estimated runs: {sobol_runs:,}")
-        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=350, sobol_type=sobol_type)
+        Si_sob = sobol_analysis(param_names, bounds, original_values, sample_size=2500, sobol_type=sobol_type)
         plot_sobol(Si_sob, param_names, filename=f'sobol_indices_{sobol_type}.png', sobol_type=sobol_type)
     
     # Ensure all parameters are restored to original values
     restore_parameters(param_names, original_values)
     print("\nAll parameters restored to original values.")
     
-    return Si_sob
+    if quick_test:
+        return Si_sob
+    else:
+        # Return all analysis results for full analysis
+        return {'morris': Si_morris, 'ofat': ofat_results, 'sobol': Si_sob}
 
 if __name__=='__main__':
     import sys

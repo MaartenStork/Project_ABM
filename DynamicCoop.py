@@ -828,36 +828,43 @@ def update_live_plot(axes, lines, step):
 
 ######################################################################################################################################################       
 
-experiment_label = 'both'
-initialize(experiment_label)
-observe()
-
-# Setup live plot
-axes, plot_lines = setup_live_plot()
-
-print("Starting simulation...")
-for j in tqdm(range(1, n), desc="Simulating", unit="step"):
-    update_one_unit_time()
+def run_simulation(experiment_type='both'):
+    """Run the full simulation with the given experiment type"""
+    initialize(experiment_type)
     observe()
     
-    # # Update live plot periodically
-    # if j % plot_update_freq == 0:
-    #     update_live_plot(axes, plot_lines, j)
+    # Setup live plot
+    axes, plot_lines = setup_live_plot()
+    
+    print("Starting simulation...")
+    for j in tqdm(range(1, n), desc="Simulating", unit="step"):
+        update_one_unit_time()
+        observe()
+        
+        # Update live plot periodically if enabled
+        if j % plot_update_freq == 0:
+            update_live_plot(axes, plot_lines, j)
+    
+    # Final plot update
+    if len(total_fish_count) == n:
+        update_live_plot(axes, plot_lines, n-1)
+    
+    plot_summary()
+    save_cooperation_data()  # Save cooperation data
+    save_trust_data()  # Save trust data
+    
+    plt.ioff()  # Disable interactive mode
+    plt.show()  # Keep the final plot window open
+    
+    print('Creating gif...')
+    create_gif()
+    delete_prev_sim()
 
-# Final plot update
-if len(total_fish_count) == n:
-    update_live_plot(axes, plot_lines, n-1)
 
-plot_summary()
-save_cooperation_data()  # Save cooperation data
-save_trust_data()  # Save trust data
-
-plt.ioff()  # Disable interactive mode
-plt.show()  # Keep the final plot window open
-
-print('Creating gif...')
-create_gif()
-delete_prev_sim()
+# Only run the simulation if this file is executed directly, not when imported
+if __name__ == "__main__":
+    experiment_label = 'both'
+    run_simulation(experiment_label)
 
 # Remove or comment out the ffmpeg video creation line at the end
 # os.system("ffmpeg -v quiet -r 5 -i year_%04d.png -vcodec mpeg4  -y -s:v 1920x1080 simulation_movie.mp4")

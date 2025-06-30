@@ -21,6 +21,7 @@ The project is organized as follows:
 - `DynamicCoop.py`: Main model implementation with agent classes and simulation logic
 - `parameters.py`: Central configuration of all model parameters
 - `fish.py`: Fish population initialization and parameters
+- `DynamicCoopUI.py`: Graphical user interface for parameter configuration and simulation execution
 
 ### Analysis Scripts
 - `sens_anl.py`: Comprehensive sensitivity analysis (OFAT, Sobol, Morris methods)
@@ -95,6 +96,16 @@ Runs repeated simulations to generate statistical data on model behavior, with c
 
 ### Basic Simulation
 
+Option 1 (Graphical User Interface):
+1. Launch the graphical parameter interface:
+```python
+python DynamicCoopUI.py
+```
+2. Adjust parameters through the tabbed interface
+3. Click "Run Simulation" to execute with your custom settings
+
+
+Option 2 (Command line):
 1. Configure simulation parameters in `parameters.py`
 2. Run the main simulation:
 ```python

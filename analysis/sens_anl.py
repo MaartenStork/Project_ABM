@@ -6,26 +6,9 @@ This script performs three types of sensitivity analysis:
 2. Sobol sensitivity analysis 
 3. Morris elementary effects screening
 
-Key improvements:
-- Now includes reproduction_rate as a parameter (was missing before)
-- Uses 300 timesteps per run (vs 150) to capture more mature system behavior
-- Uses statistically significant sample sizes:
-  * OFAT: 25 points × 50 reps = 1,250 runs per parameter (~36,250 total runs)
-  * Sobol: 2,048 samples × (29 params + 2) = ~63,500 runs
-  * Morris: 200 trajectories × (29 params + 1) = ~6,000 runs
-- Properly restores parameters after each analysis
-- Better visualization with sorted results
-
-TOTAL ESTIMATED RUNS: ~105,750 model runs (300 timesteps each)
-
 Usage:
 - Full analysis: python3 sens_anl.py
 - Quick test: python3 sens_anl.py quick
-
-WARNING: Full analysis will take 18-36+ hours depending on your machine.
-Each run is now ~2x longer due to increased timesteps (300 vs 150).
-The system has inherent stochasticity - multiple reps capture this variability.
-Consider running overnight or on a cluster.
 
 Results interpretation:
 - Morris: Use for initial screening - high μ* and σ indicates important/interactive parameters

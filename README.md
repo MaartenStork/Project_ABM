@@ -1,204 +1,255 @@
-# Fishery Agent-Based Model (ABM) Project
+# Fishery Agent-Based Model (ABM)
 
-This repository contains an Agent-Based Model (ABM) that simulates the dynamics of a small-scale, artisanal fishery. The model investigates the combined effects of fishing behavior (expressed through cooperation traits) and different designs of Marine Protected Areas (MPAs) on fish abundances and fishery yields.
+[![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status](https://img.shields.io/badge/status-active-success.svg)]()
 
-## Usage Instructions
-
-### Basic Simulation
-
-Option 1 (Graphical User Interface):
-1. Launch the graphical parameter interface:
-```python
-python DynamicCoopUI.py
-```
-2. Adjust parameters through the tabbed interface
-3. In the "Visualization" tab, select one of these visualization options:
-   - No Live Visualization (fastest execution)
-   - Show Live Plots (population and catch graphs)
-   - Show Fish and Fisher Movement in Real-time (interactive spatial view)
-4. Click "Run Simulation" to execute with your custom settings
-
-Note: When using the real-time movement visualization, you can press the space bar to pause and resume the animation.
-
-Option 2 (Command line):
-1. Configure simulation parameters in `parameters.py`
-2. Run the main simulation:
-```python
-python DynamicCoop.py
-```
-
-### Sensitivity Analysis
-
-For comprehensive sensitivity analysis:
-```python
-python sens_anl.py
-```
-
-For quick test with reduced sample sizes:
-```python
-python sens_anl.py quick
-```
-
-For specific Sobol analysis types:
-```python
-python sens_anl.py first_total  # First-order and total-order indices only
-```
-
-### Multiple Simulation Runs
-
-To run statistical analysis across multiple simulations:
-```python
-python run_multiple_simulations.py
-```
-
+> An advanced Agent-Based Model simulating small-scale artisanal fishery dynamics with cooperation traits and Marine Protected Areas (MPAs)
 
 ## Overview
 
-The model comprises two types of agents:
-1. **Fishing agents (pirogues)** - Distinguished by different cooperation traits ranging from fully-cooperative to fully non-cooperative
-2. **Fish agents** - Schooling fish with movement behavior based on repulsion, orientation, and attraction zones
+This repository contains a sophisticated Agent-Based Model (ABM) that simulates the complex dynamics of artisanal fisheries. The model investigates how **fishing behavior** (cooperation traits) affect fish populations and fishery yields.
 
-The model allows for experimentation with:
-- Different cooperation scenarios among fishers
-- Various MPA configurations (presence/absence, size, age, and distance between MPAs)
-- Sensitivity analysis of model parameters
+### Key Features
 
-## Project Structure
+- **Dual Agent System**: Fishing agents (pirogues) with varying cooperation levels and schooling fish with realistic movement patterns
+- **MPA Configuration**: Flexible Marine Protected Area designs (single/multiple, permanent/temporary)
+- **Trust Dynamics**: Sophisticated cooperation and trust mechanisms between fishers
+- **Comprehensive Analysis**: Built-in sensitivity analysis (OFAT, Sobol, Morris methods)
+- **Interactive GUI**: User-friendly interface for parameter configuration
+- **Real-time Visualization**: Live plotting and spatial movement visualization
+- **Statistical Tools**: Multiple simulation runs with statistical analysis
 
-The project is organized as follows:
+## Quick Start
 
-### Core Model Files
-- `DynamicCoop.py`: Main model implementation with agent classes and simulation logic
-- `parameters.py`: Central configuration of all model parameters
-- `fish.py`: Fish population initialization and parameters
-- `DynamicCoopUI.py`: Graphical user interface for parameter configuration and simulation execution
-- `SimulationVisualizer.py`: Real-time visualization of fish and fisher movements
+### Installation
 
-### Analysis Scripts
-- `sens_anl.py`: Comprehensive sensitivity analysis (OFAT, Sobol, Morris methods)
-- `morris_analysis_no_mpa.py`: Morris screening analysis for no-MPA scenario
-- `morris_power_analysis.py`: Power analysis for Morris method sensitivity analysis
-- `plot_morris_enhanced.py`: Enhanced visualization of Morris analysis results
-- `plot_sobol_results.py`: Visualization of Sobol sensitivity analysis results
-- `parameter_equilibrium_analyzer.py`: Analyzes parameter impacts on equilibrium states
-- `five_param_sens.py`: Focused analysis on five key parameters
-- `focused_sens_anl.py`: Targeted sensitivity analysis on critical parameters
-- `balanced_stability_analysis.py`: Analysis of system stability under different conditions
+1. **Clone the repository**
 
-### Simulation & Utilities
-- `run_multiple_simulations.py`: Runs batches of simulations for statistical analysis
-- `create_gif.py`: Generates animation of model simulation
+```bash
+git clone https://github.com/yourusername/Project_ABM.git
+cd Project_ABM
+```
 
-### Directories
-- `Original/`: Original model implementations
-- `TestingMaarten/`: Development versions and test scenarios
-- `plots/`: Generated visualizations
-- `simulation_output/`: Simulation results and data
+2. **Install dependencies**
 
-## File Descriptions
+```bash
+pip install numpy matplotlib pandas tqdm SALib imageio seaborn adjustText tkinter
+```
 
-### Core Files
+### Run Your First Simulation
 
-#### DynamicCoop.py
-The main model file implementing the agent-based simulation. It includes:
-- Agent class definitions
-- Fish movement rules based on boid model (repulsion, orientation, attraction)
-- Fisher movement and fishing logic
-- Trust dynamics between fishing agents
-- Cooperation and imitation mechanisms
-- Simulation initialization and time-stepping
+**Option 1: Interactive GUI (Recommended)**
 
-#### parameters.py
-Central configuration file containing all model parameters:
-- Trust and loyalty parameters
-- Fishing ground parameters
-- Threshold-based behavior parameters
-- Imitation parameters
-- Fish agent attributes
-- Fishing agent attributes
-- Marine Protected Area (MPA) parameters
-- Plotting parameters
+```bash
+python DynamicCoopUI.py
+```
 
-#### fish.py
-Handles fish population initialization with different parameter configurations:
-- Reproduction rates
-- Movement speeds
-- Population initialization
+- Configure parameters through the tabbed interface
+- Choose visualization options
+- Click "Run Simulation"
 
-### Analysis Files
+**Option 2: Command Line**
 
-#### sens_anl.py
-Performs three types of sensitivity analysis:
-1. One-Factor-At-A-Time (OFAT) analysis
-2. Sobol sensitivity analysis 
-3. Morris elementary effects screening
+```bash
+python DynamicCoop.py
+```
 
-#### morris_analysis_no_mpa.py
-Specialized sensitivity analysis focusing on parameters when no MPA is present.
+## Table of Contents
 
-#### run_multiple_simulations.py
-Runs repeated simulations to generate statistical data on model behavior, with configurable parameters for:
-- Number of runs
-- Trust dynamics
-- Cooperation levels
-- MPA configurations
+- [Model Architecture](#model-architecture)
+- [Usage Guide](#usage-guide)
+- [Configuration](#configuration)
+- [Analysis Tools](#analysis-tools)
+- [Project Structure](#project-structure)
+- [Examples](#examples)
+- [Contributing](#contributing)
+- [License](#license)
 
+## Model Architecture
 
-## Original Model Parameters
+### Agent Types
 
-### MPA Configuration
+| Agent Type               | Description                                | Key Behaviors                                         |
+| ------------------------ | ------------------------------------------ | ----------------------------------------------------- |
+| **Fishing Agents** | Pirogues with different cooperation traits | Movement, fishing, trust dynamics, imitation          |
+| **Fish Agents**    | Schooling fish populations                 | Boid-based movement (separation, alignment, cohesion) |
+
+### Cooperation Spectrum
+
+```
+Fully Non-Cooperative ←→ Non-Cooperative ←→ Conditional ←→ Cooperative ←→ Fully Cooperative
+```
+
+- **Trust-based interactions**: Agents build/lose trust based on observed behaviors
+- **Dynamic cooperation**: Cooperation levels can change based on local conditions
+- **Threshold behaviors**: Agents respond to fish density and peer cooperation
+
+## Usage Guide
+
+### GUI Interface
+
+The graphical interface provides five main tabs:
+
+| Tab                         | Purpose                                  |
+| --------------------------- | ---------------------------------------- |
+| **Basic Parameters**  | Simulation steps, carrying capacity      |
+| **Fisher Parameters** | Number and cooperation distribution      |
+| **MPA Settings**      | Marine Protected Area configuration      |
+| **Trust Parameters**  | Trust dynamics and behavioral thresholds |
+| **Visualization**     | Real-time plotting and animation options |
+
+### Visualization Options
+
+- **No Live Visualization**: Maximum performance
+- **Live Plots**: Real-time population and catch graphs
+- **Movement Visualization**: Interactive spatial view (press spacebar to pause)
+
+### Analysis Tools
+
+#### Sensitivity Analysis
+
+```bash
+# Comprehensive analysis (OFAT, Sobol, Morris)
+python sens_anl.py
+
+# Quick test with reduced samples
+python sens_anl.py quick
+
+# Specific analysis types
+python sens_anl.py first_total
+```
+
+#### Multiple Simulation Runs
+
+```bash
+python run_multiple_simulations.py
+```
+
+## Configuration
+
+### MPA Configuration Examples
+
+**Single Permanent MPA (25% coverage)**
+
 ```python
-MPA = 'yes'         # Presence or absence of MPA ('yes' for presence, 'no' for absence)
-Both = 'no'         # Presence of MPA ('no' for full-time presence, 'yes' for part-time presence)
-Time_MPA = 50       # Period of time over which MPA is active (when Both = 'yes') 
-Type_MPA = 'single' # Spatial configuration of MPA ('spaced' for 2 MPAs, 'single' for 1 MPA)
-Dist_MPA = 0.2      # Distance between two MPAs (when Type_MPA = 'spaced')
-Frac_MPA = 0.25     # Fraction of fishing ground covered by MPA(s)
+MPA = 'yes'
+Both = 'no'
+Type_MPA = 'single'
+Frac_MPA = 0.25
+```
+
+**Dual Spaced MPAs**
+
+```python
+MPA = 'yes'
+Type_MPA = 'spaced'
+Dist_MPA = 0.2
+Frac_MPA = 0.25
+```
+
+**Temporary MPA (50-step cycles)**
+
+```python
+MPA = 'yes'
+Both = 'yes'
+Time_MPA = 50
 ```
 
 ### Cooperation Scenarios
 
-**Low Cooperation (LC):**
-```python
-fully_noncoop = 6     # number of fully non-cooperative pirogues
-noncoop = 5           # number of non-cooperative pirogues
-cond_coop = 4         # number of conditional cooperative pirogues
-coop = 3              # number of cooperative pirogues
-fully_coop = 2        # number of fully cooperative pirogues
+| Scenario                   | Fully Non-Coop | Non-Coop | Conditional | Coop | Fully Coop |
+| -------------------------- | -------------- | -------- | ----------- | ---- | ---------- |
+| **Low Cooperation**  | 6              | 5        | 4           | 3    | 2          |
+| **Intermediate**     | 4              | 4        | 4           | 4    | 4          |
+| **High Cooperation** | 2              | 3        | 4           | 5    | 6          |
+
+## Analysis Tools
+
+### Built-in Sensitivity Analysis
+
+- **OFAT (One-Factor-At-A-Time)**: Individual parameter impact assessment
+- **Sobol Analysis**: Global sensitivity with interaction effects
+- **Morris Screening**: Efficient parameter screening for large parameter spaces
+
+### Specialized Analysis Scripts
+
+| Script                                | Purpose                              |
+| ------------------------------------- | ------------------------------------ |
+| `morris_analysis_no_mpa.py`         | Morris analysis for no-MPA scenarios |
+| `parameter_equilibrium_analyzer.py` | Equilibrium state analysis           |
+| `balanced_stability_analysis.py`    | System stability assessment          |
+| `five_param_sens.py`                | Focused analysis on key parameters   |
+
+## Project Structure
+
+```
+Project_ABM/
+├── DynamicCoopUI.py              # GUI interface
+├── DynamicCoop.py                # Main simulation
+├── parameters.py                 # Configuration
+├── fish.py                       # Fish initialization
+├── SimulationVisualizer.py       # Real-time visualization
+├── Analysis Scripts/
+│   ├── sens_anl.py                  # Sensitivity analysis
+│   ├── morris_analysis_no_mpa.py    # Morris (no MPA)
+│   ├── plot_sobol_results.py       # Sobol visualization
+│   └── ...
+├── run_multiple_simulations.py   # Batch simulations
+├── Original/                     # Original implementations
+├── TestingMaarten/              # Development versions
+├── plots/                       # Generated visualizations
+└── simulation_output/           # Results data
 ```
 
-**Intermediate Cooperation (IC):**
-```python
-fully_noncoop = 4     # number of fully non-cooperative pirogues
-noncoop = 4           # number of non-cooperative pirogues
-cond_coop = 4         # number of conditional cooperative pirogues
-coop = 4              # number of cooperative pirogues
-fully_coop = 4        # number of fully cooperative pirogues
+## Examples
+
+### Parameter Sensitivity Results
+
+The model provides comprehensive sensitivity analysis showing which parameters most significantly impact:
+
+- Fish population dynamics
+- Fishing yields
+- Cooperation emergence
+- MPA effectiveness
+
+### Trust Dynamics
+
+Trust evolves dynamically based on:
+
+- Observed fishing behavior
+- Spatial proximity
+- Historical interactions
+- Local fish density
+
+## Requirements
+
+```txt
+numpy>=1.19.0
+matplotlib>=3.3.0
+pandas>=1.1.0
+tqdm>=4.50.0
+SALib>=1.4.0
+imageio>=2.9.0
+seaborn>=0.11.0
+adjustText>=0.7.0
 ```
 
-**High Cooperation (HC):**
-```python
-fully_noncoop = 2     # number of fully non-cooperative pirogues
-noncoop = 3           # number of non-cooperative pirogues
-cond_coop = 4         # number of conditional cooperative pirogues
-coop = 5              # number of cooperative pirogues
-fully_coop = 6        # number of fully cooperative pirogues
-```
+## Contributing
 
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-## Dependencies
+### Development Setup
 
-The model requires the following Python libraries:
-- numpy
-- matplotlib
-- pandas
-- tqdm
-- SALib (for sensitivity analysis)
-- imageio (for GIF creation)
-- seaborn (for enhanced plotting)
-- adjustText (for improved plot label positioning)
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## Contributors
+## Contact
 
-Original Model by: OWUSU, Kwabena Afriyie  
-Adapted Model by: Maarten, Mikko, Yoad and Lucas
+**Project Maintainer**: [Your Name]
+
+- Email: maartenastork@gmail.com
+- GitHub: [@MaartenStork](https://github.com/yourusername)

@@ -183,13 +183,6 @@ coop = 5              # number of cooperative pirogues
 fully_coop = 6        # number of fully cooperative pirogues
 ```
 
-## Model Flow Diagram
-
-The events handled by the agent-based model over a single time step follow this flow:
-
-![Model Flow Diagram](plots/FigS1.png)
-
-The system state (number of fishes and pirogues) is updated in an asynchronous manner, where in each asynchronous updating, 1/(n+P) of a time step passes, where n+P is the total number of agents (fishes and pirogues) at the time of updating.
 
 ## Dependencies
 
@@ -202,13 +195,6 @@ The model requires the following Python libraries:
 - imageio (for GIF creation)
 - seaborn (for enhanced plotting)
 - adjustText (for improved plot label positioning)
-
-## References
-
-- K. A. Owusu, M. M. Kulesz, and A. Merico. [Extraction behaviour and income inequalities resulting from a common pool resource exploitation](https://www.mdpi.com/2071-1050/11/2/536). *Sustainability*, **11**(536), 2019.
-- G. Brandt, M. M. Kulesz, D. Nissen, and A. Merico. [OGUMI-A new mobile application to conduct common-pool resource experiments in continuous time](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0178951). *PLoS ONE*, **12**(6):e0178951, 2017.
-- G. Brandt and A. Merico. [Tipping points and user-resource system collapse in a simple model of evolutionary dynamics](https://www.sciencedirect.com/science/article/pii/S1476945X13000032). *Ecological Complexity*, **13**:46–52, 2013.
-- G. Brandt, A. Merico, B. Vollan, and A. Schlüter. [Human adaptive behavior in common pool resource systems](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0052763). *PLoS ONE*, **7**(12):e52763, 2012.
 
 ## Contributors
 

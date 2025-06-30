@@ -90,4 +90,4 @@ Yp = -Half_Length
 Yq =  Half_Length 
 
 # Live plotting parameters
-plot_update_freq = 25  # Update plot every X steps
+plot_update_freq = 1  # Update plot every X steps

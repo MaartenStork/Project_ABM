@@ -103,9 +103,10 @@ Option 1 (Graphical User Interface):
 python DynamicCoopUI.py
 ```
 2. Adjust parameters through the tabbed interface
-3. In the "Visualization" tab, you can enable:
-   - Live plotting during simulation
-   - Real-time movement visualization of fish and fishers
+3. In the "Visualization" tab, select one of these visualization options:
+   - No Live Visualization (fastest execution)
+   - Show Live Plots (population and catch graphs)
+   - Show Fish and Fisher Movement in Real-time (interactive spatial view)
 4. Click "Run Simulation" to execute with your custom settings
 
 Note: When using the real-time movement visualization, you can press the space bar to pause and resume the animation.

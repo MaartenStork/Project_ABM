@@ -205,19 +205,24 @@ class CoopSimulationUI:
         tk.Entry(frame, textvariable=self.plot_update_freq_var, width=10).grid(row=0, column=1, sticky="w", padx=10, pady=5)
         tk.Label(frame, text="(update every X steps)").grid(row=0, column=2, sticky="w", pady=5)
         
-        # Uncommenting plotting
-        self.enable_live_plot_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(frame, text="Enable Live Plot During Simulation", 
-                      variable=self.enable_live_plot_var).grid(row=1, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+        # Create radio buttons for visualization options
+        self.visualization_var = tk.StringVar(value="none")
         
-        # Real-time fish and fisher movement visualization
-        self.enable_movement_visualization_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(frame, text="Show Fish and Fisher Movement in Real-time", 
-                      variable=self.enable_movement_visualization_var).grid(row=2, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+        # No visualization
+        tk.Radiobutton(frame, text="No Live Visualization", 
+                      variable=self.visualization_var, value="none").grid(row=1, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+        
+        # Live plots only
+        tk.Radiobutton(frame, text="Show Live Plots (Fish Population & Catch)", 
+                      variable=self.visualization_var, value="plots").grid(row=2, column=0, columnspan=3, sticky="w", padx=10, pady=5)
+                      
+        # Movement visualization only
+        tk.Radiobutton(frame, text="Show Fish and Fisher Movement in Real-time", 
+                      variable=self.visualization_var, value="movement").grid(row=3, column=0, columnspan=3, sticky="w", padx=10, pady=5)
         
         # Add tooltip or help text
         tk.Label(frame, text="(Press space bar to pause/resume the movement visualization)", 
-                 fg="gray").grid(row=3, column=0, columnspan=3, sticky="w", padx=30, pady=2)
+                 fg="gray").grid(row=4, column=0, columnspan=3, sticky="w", padx=30, pady=2)
     
     def validate_fisher_counts(self, *args):
         try:
@@ -296,12 +301,16 @@ class CoopSimulationUI:
         # Apply matplotlib patches
         self.patch_matplotlib()
         
-        # Add a module-level flag for live plotting that DynamicCoop can check
+        # Set visualization flags based on radio button selection
+        enable_live_plotting = (self.visualization_var.get() == "plots")
+        enable_movement_visualization = (self.visualization_var.get() == "movement")
+        
+        # Set the module-level flag for live plotting
         if hasattr(self.params_module, 'enable_live_plotting'):
-            self.params_module.enable_live_plotting = self.enable_live_plot_var.get()
+            self.params_module.enable_live_plotting = enable_live_plotting
         else:
             # Add the attribute if it doesn't exist
-            setattr(self.params_module, 'enable_live_plotting', self.enable_live_plot_var.get())
+            setattr(self.params_module, 'enable_live_plotting', enable_live_plotting)
             
         # Hide UI temporarily
         self.root.withdraw()
@@ -312,10 +321,10 @@ class CoopSimulationUI:
             # Force reload to ensure it sees updated parameters
             importlib.reload(DynamicCoop)
             
-            # Determine which run method to use based on visualization options
+            # Determine which run method to use based on visualization option
             experiment_label = 'both'  # You could make this an option in the UI
             
-            if self.enable_movement_visualization_var.get():
+            if self.visualization_var.get() == "movement":
                 # Run with movement visualization
                 run_with_visualization(experiment_label)
             else:

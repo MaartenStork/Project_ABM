@@ -38,7 +38,10 @@ class SimulationVisualizer:
         self.mpa_lines = []
         
         # Set title and legend
-        self.title = self.ax.set_title('Year = 0')
+        # Get total steps from parameters
+        total_steps = getattr(sys.modules['parameters'], 'n', 50)
+        # Start at step 0 out of total_steps-1
+        self.title = self.ax.set_title(f'Step 0 out of {total_steps-1}')
         self.ax.legend(numpoints=1, loc='center', bbox_to_anchor=(0.5, -0.072), ncol=3, 
                        prop={'size': 11}, facecolor='lightskyblue')
         
@@ -70,7 +73,10 @@ class SimulationVisualizer:
             return
             
         # Update title
-        self.title.set_text(f'Year = {int(time_value)}')
+        # Get total steps from parameters
+        total_steps = getattr(sys.modules['parameters'], 'n', 50)
+        # Divide time by 2 to get actual step number (since time increments twice per simulation step)
+        self.title.set_text(f'Step {int(time_value/2)} out of {total_steps-1}')
         
         # Get fishers and fish
         fishermen = [ag for ag in agents if ag.type == 'fishers']
@@ -161,6 +167,123 @@ def attach_visualizer():
     # Store original functions we need to modify
     original_update = DynamicCoop.update_one_unit_time
     original_move_fisher = DynamicCoop.move_fisher
+    original_observe = DynamicCoop.observe
+    
+    # Define a modified observe function that saves frames but doesn't display them
+    def dummy_observe():
+        # We need to collect data and save frames, but not display them
+        fishermen = [ag for ag in DynamicCoop.agents if ag.type == 'fishers']
+        fish = [ag for ag in DynamicCoop.agents if ag.type == 'fish']
+        
+        # Count fish inside MPAs - check coordinates against MPA boundaries
+        fish_in_MPAs = 0
+        
+        # Get MPA parameters from the parameters module
+        params = sys.modules['parameters']
+        MPA = getattr(params, 'MPA', 'no')
+        Both = getattr(params, 'Both', 'no')
+        Type_MPA = getattr(params, 'Type_MPA', 'single')
+        Time_MPA = getattr(params, 'Time_MPA', 0)
+        
+        # If any MPA is active
+        if any([(MPA == 'yes' and Type_MPA == 'single' and Both == 'no'), 
+                (MPA == 'no' and Both == 'yes' and Type_MPA =='single' and DynamicCoop.time1 <= Time_MPA)]):
+            # Single MPA
+            Xa = getattr(params, 'Xa', 0)
+            Xb = getattr(params, 'Xb', 0)
+            Ya = getattr(params, 'Ya', 0)
+            Yb = getattr(params, 'Yb', 0)
+            fish_in_MPAs = sum(1 for ag in fish 
+                             if Xa <= ag.x <= Xb and Ya <= ag.y <= Yb)
+        elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'), 
+                  (MPA == 'no' and Both == 'yes' and Type_MPA =='spaced' and DynamicCoop.time1 <= Time_MPA)]):
+            # Two MPAs
+            Xm = getattr(params, 'Xm', 0)
+            Xn = getattr(params, 'Xn', 0)
+            Ym = getattr(params, 'Ym', 0)
+            Yn = getattr(params, 'Yn', 0)
+            Xp = getattr(params, 'Xp', 0)
+            Xq = getattr(params, 'Xq', 0)
+            Yp = getattr(params, 'Yp', 0)
+            Yq = getattr(params, 'Yq', 0)
+            fish_in_MPAs = sum(1 for ag in fish 
+                             if (Xm <= ag.x <= Xn and Ym <= ag.y <= Yn) or 
+                                (Xp <= ag.x <= Xq and Yp <= ag.y <= Yq))
+        
+        # Update global data in DynamicCoop module
+        DynamicCoop.total_fish_count.append(len(fish))
+        DynamicCoop.fish_data_MPA.append(fish_in_MPAs)
+        DynamicCoop.fishermen_data3.append(len(fish) - fish_in_MPAs)
+        
+        # Create a figure and save it for GIF creation, but don't display it
+        # We need to create a minimal frame for GIF generation
+        plt.ioff()  # Disable interactive mode
+        fig, ax = plt.subplots(figsize=(10, 10), num=1000)  # Use a specific figure number
+        ax.set_facecolor('lightskyblue')
+        
+        # Draw fishermen by trait
+        if len(fishermen) > 0:
+            traits = ['fully_noncoop', 'noncoop', 'cond_coop', 'coop', 'fully_coop']
+            colors = np.linspace(0, 1, 5)
+            mymap = plt.get_cmap("Greys")
+            my_colors = mymap(colors)
+            
+            for i, trait in enumerate(traits):
+                X = [ag.x for ag in fishermen if ag.trait == trait]
+                Y = [ag.y for ag in fishermen if ag.trait == trait]
+                if X and Y:  # Only plot if there are fishers with this trait
+                    ax.plot(X, Y, 'o', color=my_colors[i], markersize=7.5, label=trait)
+        
+        # Draw fish (simplified to avoid having to get subtypes)
+        if fish:
+            X = [ag.x for ag in fish]
+            Y = [ag.y for ag in fish]
+            ax.plot(X, Y, '^', color='blue', markersize=3, label='fish')
+        
+        # Draw MPA boundaries if needed
+        params = sys.modules['parameters']
+        half_length_area = getattr(params, 'half_length_area', 50)
+        
+        if any([(MPA == 'yes' and Type_MPA == 'single' and Both == 'no'), 
+                (MPA == 'no' and Both == 'yes' and Type_MPA =='single' and DynamicCoop.time1 <= Time_MPA)]):
+            ax.vlines(Xa, Ya, Yb, lw=2, color='k')
+            ax.vlines(Xb, Ya, Yb, lw=2, color='k')
+            ax.hlines(Ya, Xa, Xb, lw=2, color='k')
+            ax.hlines(Yb, Xa, Xb, lw=2, color='k')
+        elif any([(MPA == 'yes' and Type_MPA == 'spaced' and Both == 'no'), 
+                  (MPA == 'no' and Both == 'yes' and Type_MPA =='spaced' and DynamicCoop.time1 <= Time_MPA)]):
+            ax.vlines(Xm, Ym, Yn, lw=2, color='k')
+            ax.vlines(Xn, Ym, Yn, lw=2, color='k')
+            ax.hlines(Ym, Xm, Xn, lw=2, color='k')
+            ax.hlines(Yn, Xm, Xn, lw=2, color='k')
+            ax.vlines(Xp, Yp, Yq, lw=2, color='k')
+            ax.vlines(Xq, Yp, Yq, lw=2, color='k')
+            ax.hlines(Yp, Xp, Xq, lw=2, color='k')
+            ax.hlines(Yq, Xp, Xq, lw=2, color='k')
+            
+        # Set up plot appearance
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim([-half_length_area, half_length_area])
+        ax.set_ylim([-half_length_area, half_length_area])
+        ax.grid(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        # Get total steps from parameters
+        total_steps = getattr(params, 'n', 50)
+        ax.set_title(f'Step {int( (DynamicCoop.time1) / 2)} out of {total_steps-1}')
+        
+        ax.legend(numpoints=1, loc='center', bbox_to_anchor=(0.5, -0.072), 
+                 ncol=3, prop={'size': 11}, facecolor='lightskyblue')
+        
+        # Save the frame but don't display it
+        import os
+        script_dir = os.path.dirname(os.path.abspath(DynamicCoop.__file__))
+        sim_output_dir = os.path.join(script_dir, "simulation_output")
+        os.makedirs(sim_output_dir, exist_ok=True)
+        fig.savefig(f'{sim_output_dir}/year_{int(DynamicCoop.time1):04d}.png', 
+                   bbox_inches='tight', pad_inches=0, dpi=200)
+        plt.close(fig)
     
     # Define wrapper function for move_fisher that updates visualization after movement
     def visualized_move_fisher(fisher):
@@ -178,6 +301,7 @@ def attach_visualizer():
     # Replace the functions
     DynamicCoop.update_one_unit_time = visualized_update
     DynamicCoop.move_fisher = visualized_move_fisher
+    DynamicCoop.observe = dummy_observe  # Replace observe function
     
     # Show visualizer window
     visualizer.start_visualization()

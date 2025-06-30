@@ -110,41 +110,7 @@ python sens_anl.py quick
 python sens_anl.py first_total
 ```
 
-#### Multiple Simulation Runs
-
-```bash
-python run_multiple_simulations.py
-```
-
 ## Configuration
-
-### MPA Configuration Examples
-
-**Single Permanent MPA (25% coverage)**
-
-```python
-MPA = 'yes'
-Both = 'no'
-Type_MPA = 'single'
-Frac_MPA = 0.25
-```
-
-**Dual Spaced MPAs**
-
-```python
-MPA = 'yes'
-Type_MPA = 'spaced'
-Dist_MPA = 0.2
-Frac_MPA = 0.25
-```
-
-**Temporary MPA (50-step cycles)**
-
-```python
-MPA = 'yes'
-Both = 'yes'
-Time_MPA = 50
-```
 
 ### Cooperation Scenarios
 
@@ -185,7 +151,6 @@ Project_ABM/
 │   ├── morris_analysis_no_mpa.py    # Morris (no MPA)
 │   ├── plot_sobol_results.py       # Sobol visualization
 │   └── ...
-├── run_multiple_simulations.py   # Batch simulations
 ├── Original/                     # Original implementations
 ├── TestingMaarten/              # Development versions
 ├── plots/                       # Generated visualizations
@@ -224,18 +189,6 @@ imageio>=2.9.0
 seaborn>=0.11.0
 adjustText>=0.7.0
 ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## Contact
 
